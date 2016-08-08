@@ -370,6 +370,7 @@ MI_Result Sock_Connect(
 
     r = connect(self, &addr->u.sock_addr, (size_t)addr->sock_addr_size);
     connectErrno = errno;
+    (void) connectErrno;
 
     if (isNonBlockingSocket != 0)
     {

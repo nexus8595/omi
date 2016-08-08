@@ -95,7 +95,7 @@ MI_EXTERN_C void MI_CALL <ALIAS>_EnumerateInstances(\n\
         cxxContext,\n\
         nameSpace,\n\
         __PropertySet(propertySet),\n\
-        __bool(keysOnly),\n\
+        _bool(keysOnly),\n\
         filter);\n\
 }\n\
 \n\
@@ -197,7 +197,7 @@ MI_EXTERN_C void MI_CALL <ALIAS>_AssociatorInstances(\n\
         role,\n\
         resultRole,\n\
         __PropertySet(propertySet),\n\
-        __bool(keysOnly),\n\
+        _bool(keysOnly),\n\
         filter);\n\
 }\n\
 \n\
@@ -221,7 +221,7 @@ MI_EXTERN_C void MI_CALL <ALIAS>_ReferenceInstances(\n\
         instanceName,\n\
         role,\n\
         __PropertySet(propertySet),\n\
-        __bool(keysOnly),\n\
+        _bool(keysOnly),\n\
         filter);\n\
 }\n\
 \n"
@@ -248,7 +248,7 @@ MI_EXTERN_C void MI_CALL <ALIAS>_AssociatorInstances<ROLE1>(\n\
         cxxInstanceName,\n\
         resultClass,\n\
         __PropertySet(propertySet),\n\
-        __bool(keysOnly),\n\
+        _bool(keysOnly),\n\
         filter);\n\
 }\n\
 \n\
@@ -273,7 +273,7 @@ MI_EXTERN_C void MI_CALL <ALIAS>_AssociatorInstances<ROLE2>(\n\
         cxxInstanceName,\n\
         resultClass,\n\
         __PropertySet(propertySet),\n\
-        __bool(keysOnly),\n\
+        _bool(keysOnly),\n\
         filter);\n\
 }\n\
 \n\
@@ -296,7 +296,7 @@ MI_EXTERN_C void MI_CALL <ALIAS>_ReferenceInstances<ROLE1>(\n\
         nameSpace,\n\
         cxxInstanceName,\n\
         __PropertySet(propertySet),\n\
-        __bool(keysOnly),\n\
+        _bool(keysOnly),\n\
         filter);\n\
 }\n\
 \n\
@@ -319,7 +319,7 @@ MI_EXTERN_C void MI_CALL <ALIAS>_ReferenceInstances<ROLE2>(\n\
         nameSpace,\n\
         cxxInstanceName,\n\
         __PropertySet(propertySet),\n\
-        __bool(keysOnly),\n\
+        _bool(keysOnly),\n\
         filter);\n\
 }\n\
 \n"

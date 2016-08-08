@@ -191,7 +191,7 @@ MI_EXTERN_C void MI_CALL MSFT_Friends_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -285,7 +285,7 @@ MI_EXTERN_C void MI_CALL MSFT_Friends_AssociatorInstances(
         role,
         resultRole,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -309,7 +309,7 @@ MI_EXTERN_C void MI_CALL MSFT_Friends_ReferenceInstances(
         instanceName,
         role,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -396,7 +396,7 @@ MI_EXTERN_C void MI_CALL MSFT_Person_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -616,7 +616,7 @@ MI_EXTERN_C void MI_CALL TestEmbeddedOperations_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -786,7 +786,7 @@ MI_EXTERN_C void MI_CALL X_SingletonWithAllTypes_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -905,7 +905,7 @@ MI_EXTERN_C void MI_CALL X_FailedAtLoad_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1024,7 +1024,7 @@ MI_EXTERN_C void MI_CALL X_RefuseUnload_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 

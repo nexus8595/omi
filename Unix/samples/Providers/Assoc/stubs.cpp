@@ -132,7 +132,7 @@ MI_EXTERN_C void MI_CALL XYZ_Assoc_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -223,7 +223,7 @@ MI_EXTERN_C void MI_CALL XYZ_Assoc_AssociatorInstancesLeft(
         cxxInstanceName,
         resultClass,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -248,7 +248,7 @@ MI_EXTERN_C void MI_CALL XYZ_Assoc_AssociatorInstancesRight(
         cxxInstanceName,
         resultClass,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -271,7 +271,7 @@ MI_EXTERN_C void MI_CALL XYZ_Assoc_ReferenceInstancesLeft(
         nameSpace,
         cxxInstanceName,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -294,7 +294,7 @@ MI_EXTERN_C void MI_CALL XYZ_Assoc_ReferenceInstancesRight(
         nameSpace,
         cxxInstanceName,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -347,7 +347,7 @@ MI_EXTERN_C void MI_CALL XYZ_Widget2_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -466,7 +466,7 @@ MI_EXTERN_C void MI_CALL XYZ_Gadget2_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -585,7 +585,7 @@ MI_EXTERN_C void MI_CALL XYZ_Assoc2_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -676,7 +676,7 @@ MI_EXTERN_C void MI_CALL XYZ_Assoc2_AssociatorInstancesLeft(
         cxxInstanceName,
         resultClass,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -701,7 +701,7 @@ MI_EXTERN_C void MI_CALL XYZ_Assoc2_AssociatorInstancesRight(
         cxxInstanceName,
         resultClass,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -724,7 +724,7 @@ MI_EXTERN_C void MI_CALL XYZ_Assoc2_ReferenceInstancesLeft(
         nameSpace,
         cxxInstanceName,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -747,7 +747,7 @@ MI_EXTERN_C void MI_CALL XYZ_Assoc2_ReferenceInstancesRight(
         nameSpace,
         cxxInstanceName,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 

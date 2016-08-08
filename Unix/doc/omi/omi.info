@@ -1285,7 +1285,7 @@ In the following example, for instance, the call that creates a new
             cxxContext,
             nameSpace,
             __PropertySet(propertySet),
-            __bool(keysOnly),
+            _bool(keysOnly),
             filter );
      }
 
@@ -3588,7 +3588,7 @@ A.8 `stubs.cpp'
              cxxContext,
              nameSpace,
              __PropertySet(propertySet),
-             __bool(keysOnly),
+             _bool(keysOnly),
              filter);
      }
 

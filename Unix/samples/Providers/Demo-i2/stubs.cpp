@@ -98,7 +98,7 @@ MI_EXTERN_C void MI_CALL X_SmallNumber_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -251,7 +251,7 @@ MI_EXTERN_C void MI_CALL X_HugeNumber_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -404,7 +404,7 @@ MI_EXTERN_C void MI_CALL X_NumberWorld_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -557,7 +557,7 @@ MI_EXTERN_C void MI_CALL X_HugeNumbers_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -651,7 +651,7 @@ MI_EXTERN_C void MI_CALL X_HugeNumbers_AssociatorInstances(
         role,
         resultRole,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -675,7 +675,7 @@ MI_EXTERN_C void MI_CALL X_HugeNumbers_ReferenceInstances(
         instanceName,
         role,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -728,7 +728,7 @@ MI_EXTERN_C void MI_CALL X_OddSmallNumbers_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -822,7 +822,7 @@ MI_EXTERN_C void MI_CALL X_OddSmallNumbers_AssociatorInstances(
         role,
         resultRole,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -846,7 +846,7 @@ MI_EXTERN_C void MI_CALL X_OddSmallNumbers_ReferenceInstances(
         instanceName,
         role,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -899,7 +899,7 @@ MI_EXTERN_C void MI_CALL X_EvenSmallNumbers_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -993,7 +993,7 @@ MI_EXTERN_C void MI_CALL X_EvenSmallNumbers_AssociatorInstances(
         role,
         resultRole,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1017,7 +1017,7 @@ MI_EXTERN_C void MI_CALL X_EvenSmallNumbers_ReferenceInstances(
         instanceName,
         role,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1070,7 +1070,7 @@ MI_EXTERN_C void MI_CALL X_Halves_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1164,7 +1164,7 @@ MI_EXTERN_C void MI_CALL X_Halves_AssociatorInstances(
         role,
         resultRole,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1188,7 +1188,7 @@ MI_EXTERN_C void MI_CALL X_Halves_ReferenceInstances(
         instanceName,
         role,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1241,7 +1241,7 @@ MI_EXTERN_C void MI_CALL X_Profile_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1360,7 +1360,7 @@ MI_EXTERN_C void MI_CALL X_HugeNumberConformsToProfile_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1454,7 +1454,7 @@ MI_EXTERN_C void MI_CALL X_HugeNumberConformsToProfile_AssociatorInstances(
         role,
         resultRole,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1478,7 +1478,7 @@ MI_EXTERN_C void MI_CALL X_HugeNumberConformsToProfile_ReferenceInstances(
         instanceName,
         role,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1531,7 +1531,7 @@ MI_EXTERN_C void MI_CALL X_NumberWorldConformsToProfile_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1625,7 +1625,7 @@ MI_EXTERN_C void MI_CALL X_NumberWorldConformsToProfile_AssociatorInstances(
         role,
         resultRole,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1649,7 +1649,7 @@ MI_EXTERN_C void MI_CALL X_NumberWorldConformsToProfile_ReferenceInstances(
         instanceName,
         role,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1702,7 +1702,7 @@ MI_EXTERN_C void MI_CALL X_Number1000001_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -1872,7 +1872,7 @@ MI_EXTERN_C void MI_CALL X_Cat_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -2041,7 +2041,7 @@ MI_EXTERN_C void MI_CALL X_HTTPHeader_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 

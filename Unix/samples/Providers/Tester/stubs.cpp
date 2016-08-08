@@ -85,7 +85,7 @@ MI_EXTERN_C void MI_CALL OMI_Tester_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 

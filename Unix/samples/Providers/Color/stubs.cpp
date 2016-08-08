@@ -86,7 +86,7 @@ MI_EXTERN_C void MI_CALL ColorBase_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -205,7 +205,7 @@ MI_EXTERN_C void MI_CALL Color_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 

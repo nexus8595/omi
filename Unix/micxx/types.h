@@ -53,7 +53,7 @@ typedef MI_Char16 Char16;
 typedef MI_Type Type;
 
 // Convert from MI_Boolean to bool.
-inline bool __bool(MI_Boolean x)
+inline bool _bool(MI_Boolean x)
 {
     return x ? true : false;
 }

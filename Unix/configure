@@ -1606,7 +1606,7 @@ fi
 
 cat $root/common/MI.h >> $fn
 
-echo "Created $fn"
+echo "created $fn"
 
 fn=""
 

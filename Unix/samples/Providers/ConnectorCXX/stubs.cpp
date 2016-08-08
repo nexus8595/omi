@@ -68,7 +68,7 @@ MI_EXTERN_C void MI_CALL Widget_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -187,7 +187,7 @@ MI_EXTERN_C void MI_CALL Gadget_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -340,7 +340,7 @@ MI_EXTERN_C void MI_CALL Connector_EnumerateInstances(
         cxxContext,
         nameSpace,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -431,7 +431,7 @@ MI_EXTERN_C void MI_CALL Connector_AssociatorInstancesLeft(
         cxxInstanceName,
         resultClass,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -456,7 +456,7 @@ MI_EXTERN_C void MI_CALL Connector_AssociatorInstancesRight(
         cxxInstanceName,
         resultClass,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -479,7 +479,7 @@ MI_EXTERN_C void MI_CALL Connector_ReferenceInstancesLeft(
         nameSpace,
         cxxInstanceName,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 
@@ -502,7 +502,7 @@ MI_EXTERN_C void MI_CALL Connector_ReferenceInstancesRight(
         nameSpace,
         cxxInstanceName,
         __PropertySet(propertySet),
-        __bool(keysOnly),
+        _bool(keysOnly),
         filter);
 }
 

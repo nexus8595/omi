@@ -714,7 +714,8 @@ if [ "$arg1" = "cflags" -o "$arg1" = "cxxflags" ]; then
             ## use standar pthread funciton declarations
             r="$r -D_POSIX_PTHREAD_SEMANTICS"
 
-            r="$r -D_XOPEN_SOURCE=500"
+            test -n "$c_opt" && r="$r -D_XOPEN_SOURCE=600"
+            test -n "$cxx_opt" && r="$r -D_XOPEN_SOURCE=500"
 
             r="$r -D__EXTENSIONS__"
 

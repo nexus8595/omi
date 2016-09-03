@@ -24,6 +24,7 @@
 #include <gssapi/gssapi.h> 
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 #include <base/base.h>
 #include <base/base64.h>
 #include <base/paths.h>
@@ -68,45 +69,66 @@ Http_DecryptData(_In_ Http_SR_SocketData *handler, _Out_ HttpHeaders *pHeaders, 
   OM_uint32 min_stat = 0;
   gss_buffer_desc input_buffer = {0};
   gss_buffer_desc output_buffer = {0};
-  int confidentiality_flags = { GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG };
   Page *page  = NULL;
   char *scanlimit = NULL;
   char *scanp = NULL;
   char *segp  = NULL;
   char *linep = NULL;
   char *linelimit = NULL;
+  int flags = (int)handler->negFlags;
+  uint32_t sig_len = 0;
+  //uint32_t sig_flags = 0;
+
+  int  original_content_length = 0;
+  char original_content_type_save[1024] = {0}; // Longest possible content type?
+  char original_encoding_save[64] = {0};
+
+  char *original_content_type = NULL;
+  char *original_encoding     = NULL;
 
   MI_Boolean done=FALSE;
-  static const char   ENCRYPTED_SEGMENT[]   = "--Encrypted Boundary";
-  static const size_t ENCRYPTED_SEGMENT_LEN = MI_COUNT(ENCRYPTED_SEGMENT);
+  static const char   ENCRYPTED_SEGMENT[]   = "Encrypted Boundary";
+  static const size_t ENCRYPTED_SEGMENT_LEN = MI_COUNT(ENCRYPTED_SEGMENT)-1;
 
   static const char   ORIGINAL_CONTENT[]   = "OriginalContent:";
-  static const size_t ORIGINAL_CONTENT_LEN = MI_COUNT(ORIGINAL_CONTENT);
+  static const size_t ORIGINAL_CONTENT_LEN = MI_COUNT(ORIGINAL_CONTENT)-1;
 
   static const char   TYPE_FIELD[]   = "type=";
-  static const size_t TYPE_FIELD_LEN = MI_COUNT(TYPE_FIELD);
+  static const size_t TYPE_FIELD_LEN = MI_COUNT(TYPE_FIELD)-1;
 
   static const char   CHARSET_FIELD[]   = "charset=";
-  static const size_t CHARSET_FIELD_LEN = MI_COUNT(CHARSET_FIELD);
+  static const size_t CHARSET_FIELD_LEN = MI_COUNT(CHARSET_FIELD)-1;
 
   static const char   LENGTH_FIELD[]   = "length=";
-  static const size_t LENGTH_FIELD_LEN = MI_COUNT(LENGTH_FIELD);
+  static const size_t LENGTH_FIELD_LEN = MI_COUNT(LENGTH_FIELD)-1;
 
   static const char   CONTENT_TYPE[]   = "Content-Type:";
-  static const size_t CONTENT_TYPE_LEN = MI_COUNT(CONTENT_TYPE);
+  static const size_t CONTENT_TYPE_LEN = MI_COUNT(CONTENT_TYPE)-1;
 
   static const char   OCTET_STREAM[]   = "application/octet-stream";
-  static const size_t OCTET_STREAM_LEN = MI_COUNT(OCTET_STREAM);
+  static const size_t OCTET_STREAM_LEN = MI_COUNT(OCTET_STREAM)-1;
 
+  static const char   APPLICATION_SPNEGO[]  = "application/HTTP-SPNEGO-session-encrypted"; // 2do: compare to header protocol
+  static const size_t APPLICATION_SPNEGO_LEN = MI_COUNT(APPLICATION_SPNEGO)-1;
 
-    if (!handler->pAuthContext)
+  static const char   MULTIPART_ENCRYPTED[] = "multipart/encrypted";
+  static const size_t MULTIPART_ENCRYPTED_LEN = MI_COUNT(MULTIPART_ENCRYPTED)-1;
+
+    if (!pHeaders)
     {
         // Complain here
 
         return FALSE;
     }
 
-    if (!pHeaders)
+    if (!strncasecmp(pHeaders->contentType, MULTIPART_ENCRYPTED, MULTIPART_ENCRYPTED_LEN) == 0)
+    {
+        // Then its not encrypted. our job is done
+
+        return TRUE;
+    }
+
+    if (!handler->pAuthContext)
     {
         // Complain here
 
@@ -119,6 +141,8 @@ Http_DecryptData(_In_ Http_SR_SocketData *handler, _Out_ HttpHeaders *pHeaders, 
 
         return FALSE;
     }
+
+    handler->encryptedTransaction = TRUE;
 
     page = *pData;
     input_buffer.length = page->u.s.size;
@@ -141,15 +165,18 @@ Http_DecryptData(_In_ Http_SR_SocketData *handler, _Out_ HttpHeaders *pHeaders, 
 
 	if (Strncasecmp(segp, ENCRYPTED_SEGMENT, ENCRYPTED_SEGMENT_LEN) == 0)
         {
+	  // Skip the boundary
+	    while (!('\n' == scanp[0] && '\r' == scanp[-1]) && scanp < scanlimit) scanp++;
+	    scanp++; // ski[p the final \n
+	    
 	    // Which line
-
             while (!('\n' == scanp[0] && '\r' == scanp[-1]) && scanp < scanlimit && !done )
             {
                 // Skip to the end of the line
 
-	        linep = ++scanp;
+	        linep = scanp;
 
-	        if (Strncasecmp(linep, CONTENT_TYPE, CONTENT_TYPE_LEN) == 0)
+ 	        if (Strncasecmp(linep, CONTENT_TYPE, CONTENT_TYPE_LEN) == 0)
                 {
                     // Content-Type: application/HTTP-SPNEGO-session-encrypted | Content-Type: application/octet-stream
 
@@ -159,56 +186,102 @@ Http_DecryptData(_In_ Http_SR_SocketData *handler, _Out_ HttpHeaders *pHeaders, 
 
                     linelimit = scanp-1;
 
-                    linep += CONTENT_TYPE_LEN;
-                    while(isspace(*linep) && linep < linelimit) scanp++;
+                    linep += CONTENT_TYPE_LEN-1;
+                    while(isspace(*linep) && linep < linelimit) linep++;
 
-                    if(':'== *linep && linep < linelimit) scanp++;
+                    if(':'== *linep && linep < linelimit) linep++;
 
-                    while(isspace(*linep) && linep < linelimit) scanp++;
+                    while(isspace(*linep) && linep < linelimit) linep++;
                     
                     if (Strncasecmp(linep, OCTET_STREAM, OCTET_STREAM_LEN) == 0)
                     {
-                         input_buffer.length = page->u.s.size-((linelimit+2)-(char*)input_buffer.value);
-                         input_buffer.value  = linelimit+2;
-                         done = TRUE;
-                         break;
+
+                        // The encrypted data is sent as a 4 byte signature length, 16 byte signature,
+                        // 4 byte message length, then message. gss_unwrap doesn't like that so we need to 
+                        // verify the sig ourselves
+
+                        int offset = 0;
+                        sig_len = *(uint32_t*)(linelimit+2);
+                        sig_len = le32toh(sig_len);
+                      //  sig_flags = *(uint32_t*)(linelimit+2+4);
+                      //  sig_flags = le32toh(sig_flags);
+                        offset = (linelimit+ // all of the text up to the encrypted boundary
+                                          2+ // skip the \r\n
+                                          4  // skip the dword signature length
+                                 )-(char*)input_buffer.value;
+                        
+                        input_buffer.length -= offset+                // as above
+                                               ENCRYPTED_SEGMENT_LEN+ // ending encrypted boundary
+                                               2+2+2; // The leading and trailing -- of the
+			                              // ending boundary and ending crlf
+
+                        input_buffer.value  = linelimit+2+  // skip crlf
+                                                        4;  // skip signature len
+                        
+                        done = TRUE;
+                        break;
+                    }
+                    else if (Strncasecmp(linep, APPLICATION_SPNEGO, APPLICATION_SPNEGO_LEN) == 0)
+                    {
+                        // Should be application/HTTP-SPNEGO-session-encrypted
+
                     }
                     else 
                     {
-                        // Should be application/HTTP-SPNEGO-session-encrypted
+                        // Bogus.
                     }
+                    scanp = linelimit+2;
                 }
 	        else if (Strncasecmp(linep, ORIGINAL_CONTENT, ORIGINAL_CONTENT_LEN) == 0)
                 {
-                    char *fieldp = NULL;
-
                     while (!('\n' == scanp[0] && '\r' == scanp[-1]) && scanp < scanlimit && !done ) scanp++;
 
                     linelimit = scanp-1;
 
-                    fieldp = linep+ORIGINAL_CONTENT_LEN;
+                    linep += ORIGINAL_CONTENT_LEN;
                     do {
 
+                        while((isspace(*linep) || ';' == *linep) && linep < linelimit) linep++;
                         if (Strncasecmp(linep, LENGTH_FIELD, LENGTH_FIELD_LEN) == 0)
                         {
-
+                            linep += LENGTH_FIELD_LEN;
+                            original_content_length = atoi(linep);
+                            while (';' != *linep && linep < linelimit) linep++;
+			    linep++;
                         }
 	                else if (Strncasecmp(linep, TYPE_FIELD, TYPE_FIELD_LEN) == 0)
                         {
+                            linep += TYPE_FIELD_LEN;
+                            original_content_type = linep;
+                            while (';' != *linep && linep < linelimit) linep++;
+                            *linep++ = '\0';
+                            memcpy(original_content_type_save, original_content_type, linep-original_content_type);
+                            original_content_type = original_content_type_save;
                         }
 	                else if (Strncasecmp(linep, CHARSET_FIELD, CHARSET_FIELD_LEN) == 0)
                         {
+                            linep += CHARSET_FIELD_LEN;
+                            original_encoding = linep;
+                            while (';' != *linep && linep < linelimit) linep++;
+                            *linep++ = '\0';
+                            memcpy(original_encoding_save, original_encoding, linep-original_encoding);
+                            original_encoding = original_encoding_save;
                         }
 
-                        while (';' != *fieldp && fieldp < linelimit && !done ) fieldp++;
+                    } while (linep < linelimit);
 
-                    } while (fieldp < linelimit);
-                    
+                    scanp = linelimit+2;
                 }
-	  
+                else 
+                {
+                    // Bogus
+
+                    while (!('\n' == scanp[0] && '\r' == scanp[-1]) && scanp < scanlimit && !done ) scanp++;
+                    scanp++;
+                }
             }
         
-        }
+        } 
 	++scanp;
     }
 
@@ -224,7 +297,7 @@ Http_DecryptData(_In_ Http_SR_SocketData *handler, _Out_ HttpHeaders *pHeaders, 
                             (const gss_ctx_id_t)handler->pAuthContext,
                             &input_buffer,
                             &output_buffer,
-                            &confidentiality_flags,
+                            &flags,
                             NULL);
 
    if (GSS_S_COMPLETE != maj_stat)
@@ -235,7 +308,27 @@ Http_DecryptData(_In_ Http_SR_SocketData *handler, _Out_ HttpHeaders *pHeaders, 
    }
 
    // Here is where we replace the pData page, replace the headers on content-type and content size
+
+   // We can just copy the data into the buffer directly, since the decrypted data is guaranteed
+   // to be smaller than the encrypted data plus header
    
+   page->u.s.size = output_buffer.length;
+   memcpy(page+1, output_buffer.value, output_buffer.length);
+
+   char *buffer_p = (char*)(page+1)+output_buffer.length;
+
+   // We know we have the additional room in the page because the string was in the page already
+   memcpy(buffer_p, original_content_type, strlen(original_content_type)+1);
+   original_content_type = buffer_p;
+
+   buffer_p += strlen(original_content_type)+1; // Include the null
+   memcpy(buffer_p, original_encoding, strlen(original_encoding)+1);
+   
+   gss_release_buffer(&min_stat, &output_buffer);
+
+   pHeaders->contentType   = original_content_type;
+   pHeaders->contentLength = original_content_length;
+   pHeaders->charset       = original_encoding;
 
    
    return MI_TRUE;
@@ -251,9 +344,165 @@ MI_Boolean
 Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t *pHeaderLen, _Out_ Page **pData)
 
 {
+   char *original_content_type = NULL;
+   char *original_encoding     = NULL;
+   int   original_content_len  = (*pData)->u.s.size;
+   char  original_content_len_str[64] = {0}; // Size of the maximum possible string for 64 bits
+   unsigned long original_content_len_str_len = 0;
 
+
+   char *poriginal_data = (char*)(*pData+1);
+
+   gss_buffer_desc input_buffer  = { original_content_len, poriginal_data };
+   gss_buffer_desc output_buffer = {0};
+   OM_uint32 min_stat, maj_stat;
+   int out_flags;
+
+   static const char MULTIPART_ENCRYPTED[] = "multipart/encrypted;"\
+                                             "protocol=\"application/HTTP-SPNEGO-session-encrypted\";"\
+                                             ";boundary=\"Encrypted Boundary\"\r\n";
+
+   static const char   ENCRYPTED_BOUNDARY[]   = "--Encrypted Boundary\r\n";
+   static const size_t ENCRYPTED_BOUNDARY_LEN = MI_COUNT(ENCRYPTED_BOUNDARY)-1; // do not count the null
+
+   static const char   ENCRYPTED_BODY_CONTENT_TYPE[]   = "Content-Type: application/HTTP-SPNEGO-session-encrypted\r\n";
+   static size_t       ENCRYPTED_BODY_CONTENT_TYPE_LEN = MI_COUNT(ENCRYPTED_BODY_CONTENT_TYPE)-1;
+
+   static const char   ORIGINAL_CONTENT[]   = "OriginalContent: type=";
+   static const size_t ORIGINAL_CONTENT_LEN = MI_COUNT(ORIGINAL_CONTENT)-1;
+
+   static const char   ORIGINAL_CHARSET[]   = ";charset=";
+   static const size_t ORIGINAL_CHARSET_LEN = MI_COUNT(ORIGINAL_CHARSET)-1;
+
+   static const char   ORIGINAL_LENGTH[]    = ";Length="; // Plus crlf
+   static const size_t ORIGINAL_LENGTH_LEN  = MI_COUNT(ORIGINAL_LENGTH)-1;
+
+   static const char   ENCRYPTED_OCTET_CONTENT_TYPE[] = "Content-Type: application/octet-stream\r\n";
+   static const size_t ENCRYPTED_OCTET_CONTENT_TYPE_LEN  = MI_COUNT(ENCRYPTED_OCTET_CONTENT_TYPE)-1;
    
-   return MI_FALSE;
+   static const char   TRAILER_BOUNDARY[] = "--Encrypted Boundary--\r\n";
+   static const size_t TRAILER_BOUNDARY_LEN  = MI_COUNT(TRAILER_BOUNDARY)-1;
+
+   int needed_data_size = 0;
+
+   if (!handler->encryptedTransaction)
+   {
+
+       // We are not encrypting, so we are done;
+
+       return MI_TRUE;
+   }
+
+   (void) Uint32ToStr(original_content_len_str, original_content_len, &original_content_len_str_len );
+
+    maj_stat = gss_wrap(&min_stat, 
+                       handler->pAuthContext,
+                       handler->negFlags,  // GSS_C_INTEG_FLAG and or GSS_C_PRIV_FLAG
+                       GSS_C_QOP_DEFAULT,
+                       &input_buffer,
+                       &out_flags, 
+                       &output_buffer );
+
+    if (maj_stat != GSS_S_COMPLETE)
+    {
+        // Something went wrong. Complain
+
+        return MI_FALSE;
+    }
+      
+    // clone the header
+
+    int   orig_hdr_len = strlen(*pHeader);
+
+    // Could be less mem, but not by much and this doesnt require two passes
+    char *pNewHeader = PAL_Malloc(strlen(MULTIPART_ENCRYPTED)+orig_hdr_len); 
+    char *phdr_content_type = strcasestr(*pHeader, "Content-Type:");
+
+    // Copy the first part of the original header
+
+    char *psrc = *pHeader;
+    char *pdst = pNewHeader;
+    for (; psrc < phdr_content_type; psrc++, pdst++) *pdst = *psrc;
+
+    memcpy(pdst, MULTIPART_ENCRYPTED, strlen(MULTIPART_ENCRYPTED));
+    pdst += strlen(MULTIPART_ENCRYPTED);
+
+    psrc = strchr(phdr_content_type, '\n');
+    for (; psrc < *pHeader+orig_hdr_len; psrc++, pdst++) *pdst = *psrc;
+    
+//    PAL_Free(*pHeader); We hav no way of knowing how the pHeader got there
+    *pHeader = pNewHeader;
+
+    // Figure out the data size
+    needed_data_size = sizeof(Page)+
+                       ENCRYPTED_BOUNDARY_LEN+
+                       ENCRYPTED_BODY_CONTENT_TYPE_LEN+
+                       strlen(ORIGINAL_CONTENT)+
+                       strlen(ORIGINAL_CHARSET)+
+                       strlen(ORIGINAL_LENGTH)+
+                       original_content_len_str_len+ 
+                       strlen(original_encoding)+
+                       strlen(original_content_type)+2+ // 2 for \r\n
+                       strlen(ENCRYPTED_BOUNDARY)+
+                       strlen(ENCRYPTED_OCTET_CONTENT_TYPE)+
+                       output_buffer.length+
+                       strlen(TRAILER_BOUNDARY);
+                
+    Page *pNewData = PAL_Malloc(needed_data_size);
+    if (!pNewData)
+    {
+         // Complain and bail
+
+        return MI_FALSE;
+    }
+    
+    pNewData->u.s.size = needed_data_size;
+    char *buffp = (char*)(pNewData+1);
+
+    memcpy(buffp, ENCRYPTED_BOUNDARY, ENCRYPTED_BOUNDARY_LEN);
+    buffp += ENCRYPTED_BOUNDARY_LEN;
+   
+    memcpy(buffp, ENCRYPTED_BODY_CONTENT_TYPE, ENCRYPTED_BODY_CONTENT_TYPE_LEN);
+    buffp += ENCRYPTED_BODY_CONTENT_TYPE_LEN;
+   
+    memcpy(buffp, ORIGINAL_CONTENT, ORIGINAL_CONTENT_LEN);
+    buffp += ORIGINAL_CONTENT_LEN;
+
+    memcpy(buffp, original_content_type, strlen(original_content_type));
+    buffp += strlen(original_content_type)-1;
+
+    memcpy(buffp, ORIGINAL_CHARSET, ORIGINAL_CHARSET_LEN);
+    buffp += ORIGINAL_CHARSET_LEN;
+
+    memcpy(buffp, original_encoding, strlen(original_encoding));
+    buffp += strlen(original_encoding)-1;
+
+    memcpy(buffp, ORIGINAL_LENGTH, ORIGINAL_LENGTH_LEN);
+    buffp += ORIGINAL_LENGTH_LEN;
+
+    memcpy(buffp, original_content_len_str, strlen(original_content_len_str));
+    buffp += strlen(original_content_len_str)-1;
+
+    memcpy(buffp, "\r\n", 2);
+    buffp += 2;
+
+    memcpy(buffp, ENCRYPTED_BOUNDARY, ENCRYPTED_BOUNDARY_LEN);
+    buffp += ENCRYPTED_BOUNDARY_LEN;
+   
+    memcpy(buffp, ENCRYPTED_OCTET_CONTENT_TYPE, ENCRYPTED_OCTET_CONTENT_TYPE_LEN);
+    buffp += ENCRYPTED_OCTET_CONTENT_TYPE_LEN;
+
+    memcpy(buffp, output_buffer.value, output_buffer.length);
+    buffp += output_buffer.length;
+   
+    memcpy(buffp, TRAILER_BOUNDARY, TRAILER_BOUNDARY_LEN);
+    buffp += TRAILER_BOUNDARY_LEN;
+    
+    PAL_Free(*pData);
+    *pData = pNewData;
+
+    return MI_TRUE;
+
 }
 
 
@@ -745,7 +994,7 @@ MI_Boolean IsClientAuthorized( _In_ Http_SR_SocketData* handler)
   const char *protocol_p = NULL;
   unsigned char *auth_response = NULL;
   int            response_len  = 0;
-
+  OM_uint32     flags = 0;
 
     
     if (IsAuthCallsIgnored())
@@ -895,7 +1144,7 @@ MI_Boolean IsClientAuthorized( _In_ Http_SR_SocketData* handler)
               NULL,                      // client_name / src_name
               NULL,                      // mech_type optional Security mechanism used
               &output_token,        // ok
-              NULL, //&flags,               // Unsure 
+              &flags,               // Unsure 
               NULL,                 // time_rec number of seconds for which the context will remain valid
               NULL);                // deleg_cred
 
@@ -955,6 +1204,7 @@ MI_Boolean IsClientAuthorized( _In_ Http_SR_SocketData* handler)
             }
     
             gss_release_buffer(&min_stat, user_name);
+            handler->negFlags  = flags;
 
             PAL_Free(user_name);
 

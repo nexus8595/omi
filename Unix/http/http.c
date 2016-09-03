@@ -60,6 +60,7 @@ typedef void SSL_CTX;
 #include "http_private.h"
 
 #define FORCE_TRACING 0
+#define ENCRYPT_DECRYPT 1
 
 //------------------------------------------------------------------------------
 
@@ -147,6 +148,7 @@ static MI_Boolean _getNameValuePair(
 
     return MI_TRUE;
 }
+
 
 static MI_Boolean _getHeaderField(
     Http_SR_SocketData* handler,
@@ -577,35 +579,6 @@ static Http_CallbackResult _ReadHeader(
     memcpy( handler->recvPage + 1, data, handler->receivedSize );
     handler->recvingState = RECV_STATE_CONTENT;
 
-/*
-    if (0 == handler->recvHeaders.contentLength )
-    {
-        // Corner case is 
-        // no data sent with initial auth (content length 0)
-        // This shows up in regress. In such a case we authorise 
-        // here
-        //
-
-        if (handler->authFailed) 
-        {
-            handler->httpErrorCode = HTTP_ERROR_CODE_UNAUTHORIZED;
-            return PRT_RETURN_FALSE;
-        }
-    
-        if(handler->recvHeaders.authorization)
-        {
-            handler->requestIsBeingProcessed = MI_TRUE;
-            if (!handler->isAuthorised)
-            { 
-                if (!IsClientAuthorized(handler))
-                {
-                    return PRT_RETURN_TRUE;
-                }
-            }
-        }
-    }
- */
-
     return PRT_CONTINUE;
 }
 
@@ -678,9 +651,10 @@ static Http_CallbackResult _ReadData(
     if (!handler->ssl)
     {
 #if ENCRYPT_DECRYPT
-        if (Http_DecryptData(handler, &handler->recvHeaders, &handler->recvPage) ) {
-             
-             // This is where we decide to do stuff
+        if (!Http_DecryptData(handler, &handler->recvHeaders, &handler->recvPage) )
+        {
+            // Failed decrypt. No encryption counts as success. So this is an error
+            return PRT_RETURN_FALSE;
         }
 #endif
     }
@@ -801,11 +775,13 @@ static Http_CallbackResult _WriteHeader(
 
 /*    "SOAPAction: http://schemas.xmlsoap.org/ws/2004/08/addressing/fault\r\n"\ */
 
-    char currentLine[sizeof(RESPONSE_HEADER_FMT) +
+    char currentLineBuff[sizeof(RESPONSE_HEADER_FMT) +
         10 /* content length */ +
         10 /*error code*/ +
         400 /* longest auth */ +
         HTTP_LONGEST_ERROR_DESCRIPTION /* code description */ ];
+
+    char* currentLine = currentLineBuff;
     char* buf;
     size_t buf_size, sent;
     MI_Result r;
@@ -862,9 +838,9 @@ static Http_CallbackResult _WriteHeader(
     if (!handler->ssl)
     {
 #if ENCRYPT_DECRYPT
-        if (Http_EncryptData(handler, &buf, &buf_size,  &handler->recvPage) ) {
+        if (!Http_EncryptData(handler, (char**)&currentLine, &buf_size,  &handler->recvPage) ) {
              
-             // This is where we decide to do stuff
+            // If we fail it was an error. Not encrypting counts as success. Complain and bail
         }
 #endif
     }

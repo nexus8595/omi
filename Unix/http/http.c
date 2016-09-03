@@ -798,7 +798,7 @@ static Http_CallbackResult _WriteHeader(
     {
         buf_size = (size_t)Snprintf(
             currentLine,
-            sizeof(currentLine),
+            sizeof(currentLineBuff),
             RESPONSE_HEADER_FMT,
             (int)handler->httpErrorCode,
             _GetHttpErrorCodeDescription(handler->httpErrorCode),
@@ -819,7 +819,7 @@ static Http_CallbackResult _WriteHeader(
 
         buf_size = (size_t)Snprintf(
             currentLine,
-            sizeof(currentLine),
+            sizeof(currentLineBuff),
                 RESPONSE_HEADER_AUTH_FMT,
                 httpErrorCode,
                 _GetHttpErrorCodeDescription(handler->httpErrorCode),
@@ -828,7 +828,7 @@ static Http_CallbackResult _WriteHeader(
         else {
             buf_size = (size_t)Snprintf(
                 currentLine,
-                sizeof(currentLine),
+                sizeof(currentLineBuff),
                 RESPONSE_HEADER_NO_AUTH_FMT,
             httpErrorCode,
             _GetHttpErrorCodeDescription(handler->httpErrorCode));
@@ -838,7 +838,7 @@ static Http_CallbackResult _WriteHeader(
     if (!handler->ssl)
     {
 #if ENCRYPT_DECRYPT
-        if (!Http_EncryptData(handler, (char**)&currentLine, &buf_size,  &handler->recvPage) ) {
+        if (!Http_EncryptData(handler, (char**)&currentLine, &buf_size,  &handler->sendPage) ) {
              
             // If we fail it was an error. Not encrypting counts as success. Complain and bail
         }
@@ -851,6 +851,13 @@ static Http_CallbackResult _WriteHeader(
     sent = 0;
 
     r = _Sock_Write(handler, buf, buf_size - handler->sentSize, &sent);
+
+    if (currentLine != currentLineBuff)
+    {
+        // Then we replaced with an encrption header which needs to be freed
+
+        PAL_Free(currentLine);
+    }
 
     if ( r == MI_RESULT_OK && 0 == sent )
         return PRT_RETURN_FALSE; /* conection closed */

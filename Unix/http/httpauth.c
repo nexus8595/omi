@@ -344,56 +344,56 @@ MI_Boolean
 Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t *pHeaderLen, _Out_ Page **pData)
 
 {
-   char *original_content_type = NULL;
-   char *original_encoding     = NULL;
-   int   original_content_len  = (*pData)->u.s.size;
-   char  original_content_len_str[64] = {0}; // Size of the maximum possible string for 64 bits
-   unsigned long original_content_len_str_len = 0;
+    char *original_content_type = NULL;
+    char *original_encoding     = NULL;
+    int   original_content_len  = (*pData)->u.s.size;
 
+    char numbuf[11] = {0};
+    const char *pnum = NULL; 
+    unsigned long str_len = 0;
+ 
+    char *poriginal_data = (char*)(*pData+1);
+ 
+    gss_buffer_desc input_buffer  = { original_content_len, poriginal_data };
+    gss_buffer_desc output_buffer = {0};
+    OM_uint32 min_stat, maj_stat;
+    int out_flags;
+ 
+    static const char MULTIPART_ENCRYPTED[] = "multipart/encrypted;"\
+                                              "protocol=\"application/HTTP-SPNEGO-session-encrypted\";"\
+                                              "boundary=\"Encrypted Boundary\"\r\n\r\n";
+ 
+    static const char   ENCRYPTED_BOUNDARY[]   = "--Encrypted Boundary\r\n";
+    static const size_t ENCRYPTED_BOUNDARY_LEN = MI_COUNT(ENCRYPTED_BOUNDARY)-1; // do not count the null
+ 
+    static const char   ENCRYPTED_BODY_CONTENT_TYPE[]   = "Content-Type: application/HTTP-SPNEGO-session-encrypted\r\n";
+    static const size_t ENCRYPTED_BODY_CONTENT_TYPE_LEN = MI_COUNT(ENCRYPTED_BODY_CONTENT_TYPE)-1;
+ 
+    static const char   ORIGINAL_CONTENT[]   = "OriginalContent: type=";
+    static const size_t ORIGINAL_CONTENT_LEN = MI_COUNT(ORIGINAL_CONTENT)-1;
+ 
+    static const char   ORIGINAL_CHARSET[]   = ";charset=";
+    static const size_t ORIGINAL_CHARSET_LEN = MI_COUNT(ORIGINAL_CHARSET)-1;
+ 
+    static const char   ORIGINAL_LENGTH[]    = ";Length="; // Plus crlf
+    static const size_t ORIGINAL_LENGTH_LEN  = MI_COUNT(ORIGINAL_LENGTH)-1;
+ 
+    static const char   ENCRYPTED_OCTET_CONTENT_TYPE[] = "Content-Type: application/octet-stream\r\n";
+    static const size_t ENCRYPTED_OCTET_CONTENT_TYPE_LEN  = MI_COUNT(ENCRYPTED_OCTET_CONTENT_TYPE)-1;
+    
+    static const char   TRAILER_BOUNDARY[] = "--Encrypted Boundary--\r\n";
+    static const size_t TRAILER_BOUNDARY_LEN  = MI_COUNT(TRAILER_BOUNDARY)-1;
+ 
+    int needed_data_size = 0;
+ 
+    if (!handler->encryptedTransaction)
+    {
+ 
+        // We are not encrypting, so we are done;
+ 
+        return MI_TRUE;
+    }
 
-   char *poriginal_data = (char*)(*pData+1);
-
-   gss_buffer_desc input_buffer  = { original_content_len, poriginal_data };
-   gss_buffer_desc output_buffer = {0};
-   OM_uint32 min_stat, maj_stat;
-   int out_flags;
-
-   static const char MULTIPART_ENCRYPTED[] = "multipart/encrypted;"\
-                                             "protocol=\"application/HTTP-SPNEGO-session-encrypted\";"\
-                                             ";boundary=\"Encrypted Boundary\"\r\n";
-
-   static const char   ENCRYPTED_BOUNDARY[]   = "--Encrypted Boundary\r\n";
-   static const size_t ENCRYPTED_BOUNDARY_LEN = MI_COUNT(ENCRYPTED_BOUNDARY)-1; // do not count the null
-
-   static const char   ENCRYPTED_BODY_CONTENT_TYPE[]   = "Content-Type: application/HTTP-SPNEGO-session-encrypted\r\n";
-   static size_t       ENCRYPTED_BODY_CONTENT_TYPE_LEN = MI_COUNT(ENCRYPTED_BODY_CONTENT_TYPE)-1;
-
-   static const char   ORIGINAL_CONTENT[]   = "OriginalContent: type=";
-   static const size_t ORIGINAL_CONTENT_LEN = MI_COUNT(ORIGINAL_CONTENT)-1;
-
-   static const char   ORIGINAL_CHARSET[]   = ";charset=";
-   static const size_t ORIGINAL_CHARSET_LEN = MI_COUNT(ORIGINAL_CHARSET)-1;
-
-   static const char   ORIGINAL_LENGTH[]    = ";Length="; // Plus crlf
-   static const size_t ORIGINAL_LENGTH_LEN  = MI_COUNT(ORIGINAL_LENGTH)-1;
-
-   static const char   ENCRYPTED_OCTET_CONTENT_TYPE[] = "Content-Type: application/octet-stream\r\n";
-   static const size_t ENCRYPTED_OCTET_CONTENT_TYPE_LEN  = MI_COUNT(ENCRYPTED_OCTET_CONTENT_TYPE)-1;
-   
-   static const char   TRAILER_BOUNDARY[] = "--Encrypted Boundary--\r\n";
-   static const size_t TRAILER_BOUNDARY_LEN  = MI_COUNT(TRAILER_BOUNDARY)-1;
-
-   int needed_data_size = 0;
-
-   if (!handler->encryptedTransaction)
-   {
-
-       // We are not encrypting, so we are done;
-
-       return MI_TRUE;
-   }
-
-   (void) Uint32ToStr(original_content_len_str, original_content_len, &original_content_len_str_len );
 
     maj_stat = gss_wrap(&min_stat, 
                        handler->pAuthContext,
@@ -409,29 +409,48 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
 
         return MI_FALSE;
     }
+
+    gss_buffer_desc token = { 0 };
+
+    maj_stat = gss_get_mic(&min_stat, 
+                       handler->pAuthContext,
+                       GSS_C_QOP_DEFAULT,
+                       &input_buffer,
+                       &token);
+
+    if (maj_stat != GSS_S_COMPLETE)
+    {
+        // Something went wrong. Complain
+
+        return MI_FALSE;
+    }
       
     // clone the header
 
     int   orig_hdr_len = strlen(*pHeader);
 
     // Could be less mem, but not by much and this doesnt require two passes
-    char *pNewHeader = PAL_Malloc(strlen(MULTIPART_ENCRYPTED)+orig_hdr_len); 
-    char *phdr_content_type = strcasestr(*pHeader, "Content-Type:");
+    char *pNewHeader = PAL_Malloc(strlen(MULTIPART_ENCRYPTED)+orig_hdr_len+100); 
+    // char *pdstlimit = pNewHeader+strlen(MULTIPART_ENCRYPTED)+orig_hdr_len;
 
-    // Copy the first part of the original header
+    char *phdr = strcasestr(*pHeader, "Content-Type:");
+    phdr = strchr(phdr, ':');
+    phdr++;
 
-    char *psrc = *pHeader;
-    char *pdst = pNewHeader;
-    for (; psrc < phdr_content_type; psrc++, pdst++) *pdst = *psrc;
+    while(isspace(*phdr)) phdr++;
+    original_content_type = phdr;
+    phdr = strchr(phdr, ';');
+    *phdr++ = '\0'; 
 
-    memcpy(pdst, MULTIPART_ENCRYPTED, strlen(MULTIPART_ENCRYPTED));
-    pdst += strlen(MULTIPART_ENCRYPTED);
+    phdr = strcasestr(phdr, "charset=");
+    phdr = strchr(phdr, '=');
+    phdr++;
 
-    psrc = strchr(phdr_content_type, '\n');
-    for (; psrc < *pHeader+orig_hdr_len; psrc++, pdst++) *pdst = *psrc;
-    
-//    PAL_Free(*pHeader); We hav no way of knowing how the pHeader got there
-    *pHeader = pNewHeader;
+    original_encoding = phdr;
+    phdr = strchr(phdr, '\r');
+    *phdr++ = '\0'; 
+
+    pnum = Uint32ToStr(numbuf, original_content_len, &str_len );
 
     // Figure out the data size
     needed_data_size = sizeof(Page)+
@@ -440,13 +459,41 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
                        strlen(ORIGINAL_CONTENT)+
                        strlen(ORIGINAL_CHARSET)+
                        strlen(ORIGINAL_LENGTH)+
-                       original_content_len_str_len+ 
+                       str_len+ 
                        strlen(original_encoding)+
                        strlen(original_content_type)+2+ // 2 for \r\n
                        strlen(ENCRYPTED_BOUNDARY)+
                        strlen(ENCRYPTED_OCTET_CONTENT_TYPE)+
+                       4+            // dword signaturelength
                        output_buffer.length+
                        strlen(TRAILER_BOUNDARY);
+                       //1024; // Slop for debugging purposes. We seem to have corruption
+
+    // Copy the first part of the original header
+
+    char *psrc = *pHeader;
+    char *pdst = pNewHeader;
+
+    // First replace the original content length
+
+    phdr = strcasestr(*pHeader, "Content-Length:");
+    phdr = strchr(phdr, ':');
+    phdr++;
+    for (; psrc < phdr; psrc++, pdst++) *pdst = *psrc;
+    pnum = Uint32ToStr(numbuf, needed_data_size, &str_len );
+    memcpy(pdst, pnum, str_len);
+    pdst += str_len;
+
+    psrc = strchr(phdr, '\r');
+    for (; psrc < original_content_type; psrc++, pdst++) *pdst = *psrc;
+
+    memcpy(pdst, MULTIPART_ENCRYPTED, strlen(MULTIPART_ENCRYPTED));
+    pdst += strlen(MULTIPART_ENCRYPTED);
+    
+//    PAL_Free(*pHeader); We hav no way of knowing how the pHeader got there
+    *pHeaderLen = pdst-pNewHeader;
+    *pHeader = pNewHeader;
+
                 
     Page *pNewData = PAL_Malloc(needed_data_size);
     if (!pNewData)
@@ -457,6 +504,7 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
     }
     
     pNewData->u.s.size = needed_data_size;
+    pNewData->u.s.next = 0;
     char *buffp = (char*)(pNewData+1);
 
     memcpy(buffp, ENCRYPTED_BOUNDARY, ENCRYPTED_BOUNDARY_LEN);
@@ -469,19 +517,20 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
     buffp += ORIGINAL_CONTENT_LEN;
 
     memcpy(buffp, original_content_type, strlen(original_content_type));
-    buffp += strlen(original_content_type)-1;
+    buffp += strlen(original_content_type);
 
     memcpy(buffp, ORIGINAL_CHARSET, ORIGINAL_CHARSET_LEN);
     buffp += ORIGINAL_CHARSET_LEN;
 
     memcpy(buffp, original_encoding, strlen(original_encoding));
-    buffp += strlen(original_encoding)-1;
+    buffp += strlen(original_encoding);
 
     memcpy(buffp, ORIGINAL_LENGTH, ORIGINAL_LENGTH_LEN);
     buffp += ORIGINAL_LENGTH_LEN;
 
-    memcpy(buffp, original_content_len_str, strlen(original_content_len_str));
-    buffp += strlen(original_content_len_str)-1;
+    pnum = Uint32ToStr(numbuf, original_content_len, &str_len );
+    memcpy(buffp, pnum, str_len);
+    buffp += str_len;
 
     memcpy(buffp, "\r\n", 2);
     buffp += 2;
@@ -491,6 +540,10 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
    
     memcpy(buffp, ENCRYPTED_OCTET_CONTENT_TYPE, ENCRYPTED_OCTET_CONTENT_TYPE_LEN);
     buffp += ENCRYPTED_OCTET_CONTENT_TYPE_LEN;
+
+    int siglen = htole32(token.length);
+    memcpy(buffp, &siglen, sizeof(siglen));
+    buffp += sizeof(siglen);
 
     memcpy(buffp, output_buffer.value, output_buffer.length);
     buffp += output_buffer.length;

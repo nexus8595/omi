@@ -51,7 +51,7 @@ static char* strcasestr(const char* haystack, const char* needle)
 
     if (!haystack) return NULL;
   
-    if (*np == '\0') {
+    if (*needle == '\0') {
         return (char *) haystack;
     }
   

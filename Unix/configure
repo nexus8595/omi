@@ -1224,7 +1224,7 @@ case $os in
         AIX)
             if [ disable_auth != 1 ]
             then
-                gsslib=gss
+                gsslib=gssapi_krb5
             fi
             ;;
         SUNOS)

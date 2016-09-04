@@ -371,20 +371,10 @@ MI_Boolean
 Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t *pHeaderLen, _Out_ Page **pData)
 
 {
-    char *original_content_type = NULL;
-    char *original_encoding     = NULL;
-    int   original_content_len  = (*pData)->u.s.size;
-
     char numbuf[11] = {0};
     const char *pnum = NULL; 
     unsigned long str_len = 0;
  
-    char *poriginal_data = (char*)(*pData+1);
- 
-    gss_buffer_desc input_buffer  = { original_content_len, poriginal_data };
-    gss_buffer_desc output_buffer = {0};
-    OM_uint32 min_stat, maj_stat;
-    int out_flags;
  
     static const char MULTIPART_ENCRYPTED[] = "multipart/encrypted;"\
                                               "protocol=\"application/HTTP-SPNEGO-session-encrypted\";"\
@@ -413,6 +403,18 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
  
     int needed_data_size = 0;
  
+    // We encrypted every byte that was there. Success
+
+    if (!pData)
+    {
+        return MI_TRUE;
+    }
+
+    if (!*pData)
+    {
+        return MI_TRUE;
+    }
+
     if (!handler->encryptedTransaction)
     {
  
@@ -421,6 +423,15 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
         return MI_TRUE;
     }
 
+    char *original_content_type = NULL;
+    char *original_encoding     = NULL;
+    int   original_content_len  = (*pData)->u.s.size;
+    char *poriginal_data        = (char*)(*pData+1);
+ 
+    gss_buffer_desc input_buffer  = { original_content_len, poriginal_data };
+    gss_buffer_desc output_buffer = {0};
+    OM_uint32 min_stat, maj_stat;
+    int out_flags;
 
     maj_stat = gss_wrap(&min_stat, 
                        handler->pAuthContext,

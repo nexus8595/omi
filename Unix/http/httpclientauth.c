@@ -21,8 +21,11 @@
 **
 **==============================================================================
 */
+#include <config.h>
+#if AUTHORIZATION
 #include <gssapi/gssapi.h> 
 #include <gssapi/gssapi_ext.h> 
+#endif
 #include <base/base.h>
 #include <base/base64.h>
 #include <base/paths.h>
@@ -86,14 +89,15 @@ typedef void SSL_CTX;
 
 #include "httpclient_private.h"
 
+//#define ENCRYPT_DECRYPT 1
+//#define AUTHORIZATION 1
+
 #define MAX_ERROR_SIZE 200
-static char g_ErrBuff[MAX_ERROR_SIZE];
 
 
 void _WriteTraceFile(PathID id, const void* data, size_t size);
 
 
-extern gss_OID gss_nt_service_name;
 
 
 /* 
@@ -131,6 +135,11 @@ static int EncodePlaceCallback(
 }
 
 
+#if AUTHORIZATION 
+
+static char g_ErrBuff[MAX_ERROR_SIZE];
+
+extern gss_OID gss_nt_service_name;
 /* 
  *  Based on the authorisation type, we create an auth clause for the Http response header. 
  *  The response token is converted to base 64.  
@@ -197,49 +206,6 @@ static char *_BuildClientGssAuthHeader(_In_  struct _HttpClient_SR_SocketData *s
 }
 
 
-#if 0
-static gss_buffer_t _getPrincipalName( gss_ctx_id_t pContext )
-
-{
-    // Now we have established context. All lines below are for getting source user name in form of username@DOMAIN.COM (I got it capitalized, yes)
-    gss_name_t  srcName = NULL;
-    //gss_name_t  targetName = NULL;
-    OM_uint32   lifetime;
-    OM_uint32   ctxFlags = 0;
-
-    OM_uint32   maj_status;
-    OM_uint32   min_status;
-    gss_buffer_t buff = PAL_Malloc(sizeof(gss_buffer_desc));
-
-    memset(buff, 0, sizeof(gss_buffer_desc));
-
-    maj_status = gss_inquire_context(&min_status, pContext, &srcName, /*&targetName*/NULL, &lifetime, NULL, &ctxFlags, NULL, NULL);
-    if (maj_status != GSS_S_COMPLETE)
-    {
-        // Complain
-        goto Done;
-    }
-    
-    if (srcName != NULL)
-    { 
-        maj_status = gss_display_name(&min_status, srcName, buff, NULL);
-        if (maj_status != GSS_S_COMPLETE)
-        {
-            // Complain
-            goto Done;
-        }
-        maj_status = gss_release_name(&min_status, &srcName);
-    }
-    else {
-      fprintf(stderr, "srcName == NULL\n");
-    }
-    
-Done: 
-
-    return buff;
-}
-
-#endif 
 
 static void _getStatusMsg(OM_uint32 status_code, int status_type, gss_buffer_t statusString)
 {
@@ -327,6 +293,7 @@ static int _getInputToken(const char* authorization, gss_buffer_t token)
 }
 
 
+#endif
 
 /* 
  *  Based on the authorisation type, we create an auth clause for the Http response header. 
@@ -401,6 +368,7 @@ static char *_BuildBasicAuthHeader( _In_ struct _HttpClient_SR_SocketData *self,
 
 
 
+#if AUTHORIZATION 
 static char *_BuildInitialGssAuthHeader( _In_ HttpClient_SR_SocketData* self, MI_Uint32 *status )
 
 { 
@@ -654,6 +622,8 @@ Done:
     return rslt;
 }
 
+#endif
+
 
 
 
@@ -681,6 +651,7 @@ Http_CallbackResult HttpClient_RequestAuthorization( _In_ struct _HttpClient_SR_
 
         return PRT_CONTINUE;
 
+#if AUTHORIZATION 
     case AUTH_METHOD_NEGOTIATE_WITH_CREDS:
     case AUTH_METHOD_NEGOTIATE:
     case AUTH_METHOD_KERBEROS:
@@ -696,6 +667,7 @@ Http_CallbackResult HttpClient_RequestAuthorization( _In_ struct _HttpClient_SR_
         }
 
         return PRT_CONTINUE;
+#endif
 
     default:
         return PRT_RETURN_FALSE;
@@ -781,6 +753,7 @@ Http_CallbackResult HttpClient_IsAuthorized( _In_ struct _HttpClient_SR_SocketDa
     case AUTH_METHOD_NEGOTIATE:
     case AUTH_METHOD_KERBEROS:
 
+#if AUTHORIZATION 
         if (!auth_header) 
         {
             switch(pheaders->httpError)
@@ -952,53 +925,8 @@ Http_CallbackResult HttpClient_IsAuthorized( _In_ struct _HttpClient_SR_SocketDa
                 
             }
         }
-        return PRT_RETURN_FALSE;
-
-
-#ifdef NOTYET
-        
-                    if (output_token.length != 0) {
-                        if (verbose)
-                            printf("Sending init_sec_context token (size=%d)...",
-                                   (int) send_tok.length);
-                        if ((s, v1_format ? 0 : TOKEN_CONTEXT, &send_tok) <
-                            0) {
-                            (void) gss_release_buffer(&min_stat, &send_tok);
-                            (void) gss_release_name(&min_stat, &target_name);
-                            return -1;
-                        }
-                    }
-                    (void) gss_release_buffer(&min_stat, &output_token);
-        
-                    if (maj_stat != GSS_S_COMPLETE
-                        && maj_stat != GSS_S_CONTINUE_NEEDED) {
-                        display_status("initializing context", maj_stat,
-                                       init_sec_min_stat);
-                        (void) gss_release_name(&min_stat, &target_name);
-                        if (*gss_context != GSS_C_NO_CONTEXT)
-                            gss_delete_sec_context(&min_stat, gss_context,
-                                                   GSS_C_NO_BUFFER);
-                        return -1;
-                    }
-        
-                    if (maj_stat == GSS_S_CONTINUE_NEEDED) {
-                        if (verbose)
-                            printf("continue needed...");
-                        if (recv_token(s, &token_flags, &recv_tok) < 0) {
-                            (void) gss_release_name(&min_stat, &target_name);
-                            return -1;
-                        }
-                        token_ptr = &recv_tok;
-                    }
-                    if (verbose)
-                        printf("\n");
-                    return PRT_RETURN_FALSE;
-                }
-            }
-            
-            return PRT_RETURN_FALSE;
-        }
 #endif
+        return PRT_RETURN_FALSE;
 
     default:
          return PRT_CONTINUE;

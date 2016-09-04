@@ -21,7 +21,10 @@
 **
 **==============================================================================
 */
+#include <config.h>
+#if ( AUTHORIZATION == 1 )
 #include <gssapi/gssapi.h> 
+#endif
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -34,6 +37,8 @@
 #include "http_private.h"
 
 #define FORCE_TRACING 1
+// #define ENCRYPT_DECRYPT 1
+// #define AUTHORIZATION 1
 
 
 //#static gss_OID_desc gss_c_nt_user_name = {10, (void *)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x01"}; 
@@ -55,6 +60,7 @@
 void _WriteTraceFile(PathID id, const void* data, size_t size);
 
 
+#if ENCRYPT_DECRYPT 
 
 /*
  * Decrypts encrypted data in the data packet. Returns new header (with original content type and content length)
@@ -562,6 +568,7 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
 }
 
 
+#endif
 
 
 static MI_Boolean _WriteAuthResponse( Http_SR_SocketData* handler, const unsigned char *pResponse, int responseLen)
@@ -654,7 +661,53 @@ static MI_Boolean _WriteAuthResponse( Http_SR_SocketData* handler, const unsigne
 
 
 
+/*
+**==============================================================================
+*/
 
+static void _SendAuthResponse(Http_SR_SocketData* sendSock, const unsigned char *pResponse, int responseLen )
+
+{
+    DEBUG_ASSERT( sendSock );
+
+    /* validate handler */
+
+    sendSock->handler.mask |= SELECTOR_WRITE;
+    sendSock->handler.mask &= ~SELECTOR_READ;
+
+    sendSock->sentSize = 0;
+    sendSock->sendingState = RECV_STATE_HEADER;
+
+    if( !_WriteAuthResponse(sendSock, pResponse, responseLen) )
+    {
+        trace_SendIN_IO_thread_HttpSocket_WriteFailed();
+    }
+
+
+    // Probably not going to happen, but anything sent after
+    // an auth header is ignored.
+    if (sendSock->sendPage)
+    {
+        PAL_Free(sendSock->sendPage);
+        sendSock->sendPage = 0;
+    }
+
+    if (sendSock->recvPage)
+    {
+        PAL_Free(sendSock->recvPage);
+        sendSock->sendPage = 0;
+    }
+
+    // Force it into read state so we can get the next header
+    sendSock->handler.mask &= ~SELECTOR_WRITE;
+    sendSock->handler.mask |= SELECTOR_READ;
+
+    
+}
+
+
+
+#if AUTHORIZATION
 static gss_buffer_t _getPrincipalName( gss_ctx_id_t pContext )
 
 {
@@ -811,49 +864,6 @@ static int _Base64DecCallback(
     return 0;
 }
 
-/*
-**==============================================================================
-*/
-
-static void _SendAuthResponse(Http_SR_SocketData* sendSock, const unsigned char *pResponse, int responseLen )
-
-{
-    DEBUG_ASSERT( sendSock );
-
-    /* validate handler */
-
-    sendSock->handler.mask |= SELECTOR_WRITE;
-    sendSock->handler.mask &= ~SELECTOR_READ;
-
-    sendSock->sentSize = 0;
-    sendSock->sendingState = RECV_STATE_HEADER;
-
-    if( !_WriteAuthResponse(sendSock, pResponse, responseLen) )
-    {
-        trace_SendIN_IO_thread_HttpSocket_WriteFailed();
-    }
-
-
-    // Probably not going to happen, but anything sent after
-    // an auth header is ignored.
-    if (sendSock->sendPage)
-    {
-        PAL_Free(sendSock->sendPage);
-        sendSock->sendPage = 0;
-    }
-
-    if (sendSock->recvPage)
-    {
-        PAL_Free(sendSock->recvPage);
-        sendSock->sendPage = 0;
-    }
-
-    // Force it into read state so we can get the next header
-    sendSock->handler.mask &= ~SELECTOR_WRITE;
-    sendSock->handler.mask |= SELECTOR_READ;
-
-    
-}
 
 /*
 Converts the SPNEGO authorization header string to an opaque gss token
@@ -1030,6 +1040,7 @@ static unsigned char *_BuildAuthResponse( _In_ const char *pProtocol, const int 
    return encode_context.pdata;
 }
 
+#endif
 
 
 MI_Boolean IsClientAuthorized( _In_ Http_SR_SocketData* handler)
@@ -1043,14 +1054,16 @@ MI_Boolean IsClientAuthorized( _In_ Http_SR_SocketData* handler)
                                                   "WWW-Authentication: Negotiate\r\n"\
                                                   "\r\n";
 
+#if AUTHORIZATION
   static const char *RESPONSE_HEADER_BAD_REQUEST = "HTTP/1.1 400 Bad Request\r\n" \
                                                   "Content-Length: 0\r\n"\
                                                   "\r\n";
-
+  OM_uint32     flags = 0;
   const char *protocol_p = NULL;
+#endif
+
   unsigned char *auth_response = NULL;
   int            response_len  = 0;
-  OM_uint32     flags = 0;
 
     
     if (IsAuthCallsIgnored())
@@ -1099,6 +1112,8 @@ MI_Boolean IsClientAuthorized( _In_ Http_SR_SocketData* handler)
         handler->isAuthorised = TRUE;
         return TRUE;
     }
+
+#ifdef AUTHORIZATION
     else 
     {
         const gss_OID_desc mech_krb5   = { 9, "\052\206\110\206\367\022\001\002\002" };
@@ -1368,6 +1383,7 @@ MI_Boolean IsClientAuthorized( _In_ Http_SR_SocketData* handler)
             }
         }
     }
+#endif
 
 Done:
     return authorised;

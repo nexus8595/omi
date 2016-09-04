@@ -14,7 +14,7 @@ DEFINES = TEST_BUILD
 
 INCLUDES = $(TOP) $(TOP)/common
 
-LIBRARIES = provmgr miapi omi_error xmlserializer wsman http protocol sock xmlserializer xml wql base micxx omiclient $(UNITTESTLIBS) pal micodec mofparser  gssapi_krb5
+LIBRARIES = provmgr miapi omi_error xmlserializer wsman http protocol sock xmlserializer xml wql base micxx omiclient $(UNITTESTLIBS) pal micodec mofparser ${GSSLIB}
 
 include $(TOP)/mak/rules.mak
 

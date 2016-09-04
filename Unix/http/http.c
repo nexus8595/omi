@@ -8,6 +8,7 @@
 */
 
 #include <assert.h>
+#include <config.h>
 #include <ctype.h>
 #include "httpcommon.h"
 #include <sock/addr.h>
@@ -60,7 +61,6 @@ typedef void SSL_CTX;
 #include "http_private.h"
 
 #define FORCE_TRACING 0
-#define ENCRYPT_DECRYPT 1
 
 //------------------------------------------------------------------------------
 

@@ -858,7 +858,7 @@ static int _Base64DecCallback(
     gss_buffer_t decoded_data = (gss_buffer_t)callbackData;
     const unsigned char* new_decoded_data = (const unsigned char*)data;
     
-    memcpy(decoded_data->value + decoded_data->length, new_decoded_data, length);
+    memcpy((char*)decoded_data->value + decoded_data->length, new_decoded_data, length);
     decoded_data->length += length;
     
     return 0;

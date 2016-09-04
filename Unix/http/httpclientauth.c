@@ -23,8 +23,14 @@
 */
 #include <config.h>
 #if AUTHORIZATION
+#if defined(macos)
+#include <GSS.h> 
+#else
 #include <gssapi/gssapi.h> 
+#if !defined(aix)
 #include <gssapi/gssapi_ext.h> 
+#endif
+#endif
 #endif
 #include <base/base.h>
 #include <base/base64.h>
@@ -382,18 +388,18 @@ static char *_BuildInitialGssAuthHeader( _In_ HttpClient_SR_SocketData* self, MI
    // gss_OID_set_desc mechset_iakerb = { 1, &mech_iakerb };
    const gss_OID_set_desc mechset_spnego = { 1, (gss_OID)&mech_spnego };
 
-   const gss_OID_desc mechset_krb5_elems[] = { mech_krb5,
-                                               mech_iakerb
-                                             };
+   const gss_OID mechset_krb5_elems[] = { (gss_OID const)&mech_krb5,
+                                          (gss_OID const)&mech_iakerb
+                                        };
 
    const gss_OID_set_desc mechset_krb5   = { 2, (gss_OID)mechset_krb5_elems };
 
    // The list attached to the spnego token 
 
-   const gss_OID_desc mechset_avail_elems[] = { 
-                                                mech_ntlm, // For now we start with ntlm
-                                                // mech_krb5,   Not yet
-                                                // mech_iakerb,  Not yet
+   const gss_OID mechset_avail_elems[] = { 
+                                            (gss_OID const)&mech_ntlm, // For now we start with ntlm
+                                            // mech_krb5,   Not yet
+                                             // mech_iakerb,  Not yet
                                               };
    const gss_OID_set_desc mechset_avail    = { /*3,*/1, (gss_OID)mechset_avail_elems };
 
@@ -791,8 +797,8 @@ Http_CallbackResult HttpClient_IsAuthorized( _In_ struct _HttpClient_SR_SocketDa
             // gss_OID_set_desc mechset_iakerb = { 1, &mech_iakerb };
             const gss_OID_set_desc mechset_spnego = { 1, (gss_OID)&mech_spnego };
 
-            const gss_OID_desc mechset_krb5_elems[] = { mech_krb5,
-                                                        mech_iakerb
+            const gss_OID mechset_krb5_elems[] = { (gss_OID const)&mech_krb5,
+                                                   (gss_OID const)&mech_iakerb
                                                       };
 
             const gss_OID_set_desc mechset_krb5   = { 2, (gss_OID)mechset_krb5_elems };

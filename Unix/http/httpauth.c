@@ -23,7 +23,11 @@
 */
 #include <config.h>
 #if ( AUTHORIZATION == 1 )
+#if defined(macos)
+#include <GSS.h> 
+#else
 #include <gssapi/gssapi.h> 
+#endif
 #endif
 #include <ctype.h>
 #include <string.h>
@@ -41,7 +45,7 @@
 // #define AUTHORIZATION 1
 
 
-#if defined(hpux) || defined(sun)
+#if defined(hpux) || defined(sun) || defined(aix)
 
 // A version of strcasestr as hpux doesn't have it.
 // 
@@ -321,7 +325,7 @@ Http_DecryptData(_In_ Http_SR_SocketData *handler, _Out_ HttpHeaders *pHeaders, 
     // Alloc the new data page based on the original content size
 
     maj_stat = gss_unwrap ( &min_stat, 
-                            (const gss_ctx_id_t)handler->pAuthContext,
+                            (gss_ctx_id_t)handler->pAuthContext,
                             &input_buffer,
                             &output_buffer,
                             &flags,
@@ -640,7 +644,7 @@ static MI_Boolean _WriteAuthResponse( Http_SR_SocketData* handler, const unsigne
            return FALSE;
         
         }
-        else if (sent < 0) {
+        else if ((int)sent < 0) {
             switch (SSL_get_error(handler->ssl, sent))
             {
 
@@ -1156,9 +1160,9 @@ MI_Boolean IsClientAuthorized( _In_ Http_SR_SocketData* handler)
         // gss_OID_set_desc mechset_iakerb = { 1, &mech_iakerb };
         const gss_OID_set_desc mechset_spnego = { 1, (gss_OID)&mech_spnego };
 
-        const gss_OID_desc mechset_krb5_elems[] = { mech_krb5,
-                                                    mech_iakerb
-                                                  };
+        const gss_OID mechset_krb5_elems[] = { (gss_OID const)&mech_krb5,
+                                                (gss_OID const) &mech_iakerb
+                                               };
 
         const gss_OID_set_desc mechset_krb5   = { 2, (gss_OID)mechset_krb5_elems };
 

@@ -412,6 +412,9 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
 
     gss_buffer_desc token = { 0 };
 
+    // We get the mic in order to know the signature length. We need to inclue the dword signature length at the head of the 
+    // encrypted data, which does in fact include a signature at the beginning. 
+
     maj_stat = gss_get_mic(&min_stat, 
                        handler->pAuthContext,
                        GSS_C_QOP_DEFAULT,
@@ -1197,7 +1200,7 @@ MI_Boolean IsClientAuthorized( _In_ Http_SR_SocketData* handler)
               NULL,                      // client_name / src_name
               NULL,                      // mech_type optional Security mechanism used
               &output_token,        // ok
-              &flags,               // Unsure 
+              &flags,               // flags are retained in the handler for the use of gss_wrap and gss_unwrap
               NULL,                 // time_rec number of seconds for which the context will remain valid
               NULL);                // deleg_cred
 

@@ -41,19 +41,40 @@
 // #define AUTHORIZATION 1
 
 
-//#static gss_OID_desc gss_c_nt_user_name = {10, (void *)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x01"}; 
-    /*
-     * The implementation must reserve static storage for a
-     * gss_OID_desc object containing the value */
-    /* corresponding to an object-identifier value of
-     * {iso(1) member-body(2) United States(840) mit(113554)
-     * infosys(1) gssapi(2) generic(1) user_name(1)}.  The constant
-     * GSS_C_NT_USER_NAME should be initialized to point
-     * to that gss_OID_desc.
-     */
+#if defined(hpux)
 
+// A version of strcasestr as hpux doesn't have it.
+// 
 
-//#extern gss_OID      GSS_C_NT_USER_NAME;
+static char* strcasestr(const char* haystack, const char* needle)
+{
+
+    if (!haystack) return NULL;
+  
+    if (*np == '\0') {
+        return (char *) haystack;
+    }
+  
+    do {
+        const char* hp = haystack;
+        const char* np = needle;
+    
+        while (tolower((unsigned char) *hp) == 
+               tolower((unsigned char) *np) && *np) {
+            hp++;
+            np++;
+        }
+    
+        if (*np == '\0') {
+            return (char *) haystack;
+        }
+
+    } while (*haystack++);
+  
+    return NULL;
+}
+
+#endif
 
 
 #define HTTP_LONGEST_ERROR_DESCRIPTION 50

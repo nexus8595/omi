@@ -457,6 +457,7 @@ static char *_BuildInitialGssAuthHeader( _In_ HttpClient_SR_SocketData* self, MI
            return NULL;
        }
 
+#if !defined(hpux)
        if (self->password != NULL)
        {
 
@@ -476,6 +477,7 @@ static char *_BuildInitialGssAuthHeader( _In_ HttpClient_SR_SocketData* self, MI
            }
        } 
        else 
+#endif
        {
            if (gss_username != GSS_C_NO_NAME)
            {

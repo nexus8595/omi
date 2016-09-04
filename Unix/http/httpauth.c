@@ -41,7 +41,7 @@
 // #define AUTHORIZATION 1
 
 
-#if defined(hpux)
+#if defined(hpux) || defined(sun)
 
 // A version of strcasestr as hpux doesn't have it.
 // 

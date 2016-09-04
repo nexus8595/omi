@@ -506,6 +506,7 @@ static char *_BuildInitialGssAuthHeader( _In_ HttpClient_SR_SocketData* self, MI
        }
    }
 
+#if defined(linux)
    if ((self->authType == AUTH_METHOD_NEGOTIATE) ||
        (self->authType == AUTH_METHOD_NEGOTIATE_WITH_CREDS)) {
 
@@ -519,8 +520,7 @@ static char *_BuildInitialGssAuthHeader( _In_ HttpClient_SR_SocketData* self, MI
            return NULL;
        }
    }
-
-
+#endif
 
    // Figure out the target name
    

@@ -208,9 +208,9 @@ Http_DecryptData(_In_ Http_SR_SocketData *handler, _Out_ HttpHeaders *pHeaders, 
 
                         int offset = 0;
                         sig_len = *(uint32_t*)(linelimit+2);
-                        sig_len = le32toh(sig_len);
+                        sig_len = ntohl(sig_len);
                       //  sig_flags = *(uint32_t*)(linelimit+2+4);
-                      //  sig_flags = le32toh(sig_flags);
+                      //  sig_flags = ntohl(sig_flags);
                         offset = (linelimit+ // all of the text up to the encrypted boundary
                                           2+ // skip the \r\n
                                           4  // skip the dword signature length
@@ -550,7 +550,7 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
     memcpy(buffp, ENCRYPTED_OCTET_CONTENT_TYPE, ENCRYPTED_OCTET_CONTENT_TYPE_LEN);
     buffp += ENCRYPTED_OCTET_CONTENT_TYPE_LEN;
 
-    int siglen = htole32(token.length);
+    int siglen = htonl(token.length);
     memcpy(buffp, &siglen, sizeof(siglen));
     buffp += sizeof(siglen);
 

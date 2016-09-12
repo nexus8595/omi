@@ -68,6 +68,9 @@ struct Options
     const MI_Char *queryexpr;
     MI_Boolean synchronous;
     MI_Boolean xml;
+    const MI_Char *sslTrustedCertsDir;
+    const MI_Char *sslCertFile;
+    const MI_Char *sslPrivateKeyFile;
 };
 
 static struct Options opts;
@@ -2215,6 +2218,9 @@ static MI_Result GetCommandLineOptions(
         MI_T("--protocol:"),
         MI_T("--httpport:"),
         MI_T("--httpsport:"),
+        MI_T("--certsdir:"),
+        MI_T("--certfile:"),
+        MI_T("--keyfile:"),
         NULL,
     };
 
@@ -2379,6 +2385,18 @@ static MI_Result GetCommandLineOptions(
         {
             opts.httpsport = Tcstol(state.arg, NULL, 10);
         }
+        else if (Tcscmp(state.opt, PAL_T("--certsdir")) == 0)
+        {
+            opts.sslTrustedCertsDir = state.arg;
+        }
+        else if (Tcscmp(state.opt, PAL_T("--certfile")) == 0)
+        {
+            opts.sslCertFile = state.arg;
+        }
+        else if (Tcscmp(state.opt, PAL_T("--keyfile")) == 0)
+        {
+            opts.sslPrivateKeyFile = state.arg;
+        }
 
  #if 0
         else if (Tcsncmp(state.opt, PAL_T("--"), 2) == 0 && IsNickname(state.opt+2))
@@ -2422,6 +2440,9 @@ OPTIONS:\n\
     --queryexpr EXP     Query expression (for 'ei', 'sub' command).\n\
     --httpport port     Port number to use for HTTP.\n\
     --httpsport port    Port number to use for HTTPS.\n\
+    --certsdir dir      trusted certificates directory for ssl \n\
+    --certfile filename certificate file for ssl \n \
+    --keyfile filename  private key file for ssl \n\
 \n\
 COMMANDS:\n\
     noop\n\
@@ -2620,7 +2641,30 @@ MI_Result climain(int argc, const MI_Char* argv[])
             miResult = MI_DestinationOptions_AddDestinationCredentials(miDestinationOptions, &miUserCredentials);
             if (miResult != MI_RESULT_OK)
                 goto CleanupApplication;
+
+            if (opts.sslTrustedCertsDir)
+            {
+                miResult = MI_DestinationOptions_SetTrustedCertsDir(miDestinationOptions, opts.sslTrustedCertsDir);
+                if (miResult != MI_RESULT_OK)
+                    goto CleanupApplication;
+            }
+
+            if (opts.sslCertFile)
+            {
+                miResult = MI_DestinationOptions_SetCertFile(miDestinationOptions, opts.sslCertFile);
+                if (miResult != MI_RESULT_OK)
+                    goto CleanupApplication;
+            }
+
+            if (opts.sslPrivateKeyFile)
+            {
+                miResult = MI_DestinationOptions_SetPrivateKeyFile(miDestinationOptions, opts.sslPrivateKeyFile);
+                if (miResult != MI_RESULT_OK)
+                    goto CleanupApplication;
+            }
+
         }
+
 
         miResult = MI_Application_NewSession(&miApplication, opts.protocol, opts.hostname, miDestinationOptions, NULL, NULL, &miSession);
         if (miResult != MI_RESULT_OK)

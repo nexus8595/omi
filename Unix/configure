@@ -245,6 +245,15 @@ do
         enable_sections=1
         ;;
 
+    --disable-encryption)
+        disable_encrypt=1
+        ;;
+
+    --disable-auth)
+        disable_auth=1
+        disable_encrypt=1
+        ;;
+
     --show-version)
         echo $version
         exit 0
@@ -335,6 +344,8 @@ OPTIONS:
                             first time.
     --enable-sections       Place functions and data in sections, allowing
                             the linker to remove unused objects at link time.
+    --disable-encryption    Disables the encryption and decryption of wsman requests and responses on http connections.
+    --disable-auth          Disables the uses of authorisation types other than Basic.
 
 EOF
     exit 0
@@ -1189,6 +1200,51 @@ else
     exit 1
 fi
 
+
+##==============================================================================
+##
+## gss library name
+##
+##==============================================================================
+
+echo "OS: " $os
+case $os in
+        LINUX)
+            if [ disable_auth != 1 ]
+            then
+                gsslib=gssapi_krb5
+            fi
+            ;;
+        HP-UX | HPUX)
+            if [ disable_auth != 1 ]
+            then
+                gsslib=gss
+            fi
+            ;;
+        AIX)
+            if [ disable_auth != 1 ]
+            then
+                gsslib=gssapi_krb5
+            fi
+            ;;
+        SUNOS)
+            if [ disable_auth != 1 ]
+            then
+                gsslib=gss
+            fi
+            ;;
+        DARWIN)
+            if [ disable_auth != 1 ]
+            then
+                gsslib=gss
+            fi
+            ;;
+        *)
+            echo "Unknown platform: " $os
+            exit 1
+        ;;
+esac
+
 ##==============================================================================
 ##
 ## Resolve OpenSSL options:
@@ -1210,7 +1266,7 @@ if [ -z "$openssl" ]; then
 
 fi
 
-if [ "$os" == "DARWIN" ]; then
+if [ "$os" = "DARWIN" ]; then
 
     # if no OpenSSL flags were passed and we cannot set it to use Homebrew's OpenSSL,
     # configure should exit as OMI cannot be built with OS X's defaults
@@ -1248,14 +1304,14 @@ if [ "$os" == "DARWIN" ]; then
         else
             echo "no"
 
-            if [ "$opensslshouldexit" == 1 ]; then
+            if [ "$opensslshouldexit" -eq 1 ]; then
                 exit 1
             fi
         fi
     else
         echo "no"
 
-        if [ "$opensslshouldexit" == 1 ]; then
+        if [ "$opensslshouldexit" -eq 1 ]; then
             exit 1
         fi
     fi
@@ -1402,6 +1458,10 @@ ENABLE_HTTPHEADERS=$enable_httpheaders
 ENABLE_PREEXEC=$enable_preexec
 ENABLE_SECTIONS=$enable_sections
 ENABLE_FAULTINJECTION=$enable_faultinjection
+DISABLE_ENCRYPT_DECRYPT=$disable_encrypt
+DISABLE_AUTHORIZATION=$disable_auth
+GSSLIB=$gsslib
+
 EOF
 
 echo "created $fn"
@@ -1667,6 +1727,18 @@ else
     echo "/* #define CONFIG_ENABLE_SECTIONS */" >> $fn
 fi
 
+if [ "$disable_auth" = "1" ]; then
+    echo "/* #define AUTHORIZATION 1 */" >> $fn
+else
+    echo "#define AUTHORIZATION 1" >> $fn
+fi
+
+if [ "$disable_encrypt" = "1" ]; then
+    echo "/* #define ENCRYPT_DECRYPT 1 */" >> $fn
+else
+    echo "#define ENCRYPT_DECRYPT 1" >> $fn
+fi
+
 if [ "$enable_faultinjection" = "1" ]; then
     echo "#define CONFIG_ENABLE_FAULTINJECTION" >> $fn
 else
@@ -1749,6 +1821,7 @@ endif
 CSHLIBFLAGS=`$buildtool cshlibflags --libpath=$libdir $buildtoolopts`
 CXXSHLIBFLAGS=`$buildtool cxxshlibflags --libpath=$libdir $buildtoolopts`
 LIBRARY = lib\$(PROVIDER).`$buildtool shlibext $buildtoolopts`
+
 
 EOF
 

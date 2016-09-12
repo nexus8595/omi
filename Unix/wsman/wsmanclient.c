@@ -9,7 +9,6 @@
 
 #include <pal/palcommon.h>
 #include <pal/strings.h>
-#include <pal/atomic.h>
 #include <base/base64.h>
 #include <base/batch.h>
 #include <base/messages.h>
@@ -30,46 +29,33 @@
 
 STRAND_DEBUGNAME3( WsmanClientConnector, PostMsg, ReadyToFinish, ConnectEvent );
 
-typedef struct _EnumerationState
-{
-    MI_ConstString nameSpace;
-    MI_ConstString className;
-    MI_ConstString context;
-    MI_Uint32 endOfSequence;
-}EnumerationState;
-
 struct _WsmanClient
 {
     Batch *batch;
     Strand strand;
     HttpClient *httpClient;
     WsmanClient_Headers wsmanSoapHeaders;
-    char *authorizationHeader;
     char *hostname;
     char *httpUrl;
     char *contentType;
-    ptrdiff_t sentResponse;
+    MI_Boolean sentResponse;
     WSBuf wsbuf;
     MI_Uint32 httpError;
-    EnumerationState *enumerationState;
 };
 
 static void PostResult(WsmanClient *self, const MI_Char *message, MI_Result result)
 {
-    if (Atomic_CompareAndSwap(&self->sentResponse, (ptrdiff_t)MI_FALSE, (ptrdiff_t)MI_TRUE) 
-        == (ptrdiff_t)MI_FALSE)
-    {
-        PostResultMsg *errorMsg = PostResultMsg_New(0);
+    PostResultMsg *errorMsg = PostResultMsg_New(0);
 
-        errorMsg->errorMessage = message;
-        errorMsg->result = result;
+    errorMsg->errorMessage = message;
+    errorMsg->result = result;
 
-        self->strand.info.otherMsg = &errorMsg->base;
-        Message_AddRef(&errorMsg->base);
-        Strand_ScheduleAux(&self->strand, PROTOCOLSOCKET_STRANDAUX_POSTMSG);
+    self->strand.info.otherMsg = &errorMsg->base;
+    Message_AddRef(&errorMsg->base);
+    Strand_ScheduleAux(&self->strand, PROTOCOLSOCKET_STRANDAUX_POSTMSG);
 
-        PostResultMsg_Release(errorMsg);
-    }
+    PostResultMsg_Release(errorMsg);
+    self->sentResponse = MI_TRUE;
 }
 
 static void HttpClientCallbackOnConnectFn(
@@ -80,33 +66,18 @@ static void HttpClientCallbackOnConnectFn(
     Strand_ScheduleAux( &self->strand, PROTOCOLSOCKET_STRANDAUX_CONNECTEVENT );
 
 }
-static void HttpClientCallbackOnStatusFn(
+static void HttpClientCallbackOnStatusFn2(
         HttpClient* http,
         void* callbackData,
-        MI_Result result)
+        MI_Result result,
+        const ZChar *text)
 {
     WsmanClient *self = (WsmanClient*) callbackData;
-    if (!self->enumerationState || self->enumerationState->endOfSequence)
+    if (!self->sentResponse)
     {
-        PostResult(self, NULL, MI_RESULT_OK);
+        PostResult(self, text, MI_RESULT_OK);
     }
-#if 0
-
-    {
-        MI_Uint64 currentTimeUsec = 0;
-        ProtocolBase* protocolBase = (ProtocolBase*)self->base.data;
-
-        trace_ProtocolSocket_TimeoutTrigger( self );
-        // provoke a timeout to close/delete the socket
-        PAL_Time(&currentTimeUsec);
-        self->base.fireTimeoutAt = currentTimeUsec;
-        Selector_Wakeup(HttpClient_GetSelector(self->httpClient), MI_TRUE );
-    }
-#endif
 }
-
-static MI_Result WsmanClient_CreateAuthHeader(Batch *batch, MI_DestinationOptions *options, char **finalAuthHeader);
-void _WsmanClient_Post( _In_ Strand* self_, _In_ Message* msg);
 
 static XML* InitializeXml(Page **data)
 {
@@ -244,28 +215,6 @@ static MI_Boolean ProcessNormalResponse(WsmanClient *self, Page **data)
         break;
     }
 
-    case WSMANTAG_ACTION_ENUMERATE_RESPONSE:
-    {
-        int ret = WS_ParseEnumerateResponse(xml, &self->enumerationState->context, msg->base.batch, &msg->instance, MI_TRUE);
-        if (( ret < 0) || xml->status)
-        {
-            goto error;
-        }
-        self->enumerationState->endOfSequence = ret;
-        break;
-    }
-
-    case WSMANTAG_ACTION_PULL_RESPONSE:
-    {
-        int ret = WS_ParseEnumerateResponse(xml, &self->enumerationState->context, msg->base.batch, &msg->instance, MI_FALSE);
-        if (( ret < 0) || xml->status)
-        {
-            goto error;
-        }
-        self->enumerationState->endOfSequence = ret;
-        break;
-    }
-
     default:
     {
         goto error;
@@ -279,14 +228,7 @@ static MI_Boolean ProcessNormalResponse(WsmanClient *self, Page **data)
     Strand_ScheduleAux(&self->strand, PROTOCOLSOCKET_STRANDAUX_POSTMSG);
     PostInstanceMsg_Release(msg);
 
-    if (self->enumerationState)
-    {
-        return self->enumerationState->endOfSequence ? MI_FALSE : MI_TRUE;
-    }
-    else
-    {
-        return MI_FALSE;
-    }
+    return MI_FALSE;
 
 error:
     PostResult(self, MI_T("Internal error parsing Wsman response message"), MI_RESULT_FAILED);
@@ -375,11 +317,6 @@ static MI_Boolean ProcessFaultResponse(WsmanClient *self, Page **data)
             errorMessage = fault.mi_message;
         }
 
-        if (self->enumerationState)
-        {
-            self->enumerationState->endOfSequence = 1;
-        }
-
         PostResult(self, errorMessage, fault.mi_result > 0 ? fault.mi_result : MI_RESULT_FAILED);
 
         PAL_Free(xml);
@@ -416,7 +353,7 @@ static MI_Boolean HttpClientCallbackOnResponseFn(
         self->httpError = headers->httpError;
     }
 
-    if (lastChunk && Atomic_Read(&self->sentResponse) == (ptrdiff_t)MI_FALSE) /* Only last chunk */
+    if (lastChunk && !self->sentResponse) /* Only last chunk */
     {
         switch (self->httpError)
         {
@@ -435,7 +372,7 @@ static MI_Boolean HttpClientCallbackOnResponseFn(
             return MI_FALSE;
         }
     }
-    else if (lastChunk && Atomic_Read(&self->sentResponse) == (ptrdiff_t)MI_TRUE)
+    else if (lastChunk && self->sentResponse)
         return MI_FALSE;
     else
         return MI_TRUE;
@@ -448,7 +385,7 @@ static void _WsmanClient_SendIn_IO_Thread(void *_self, Message* msg)
     Page *page = WSBuf_StealPage(&self->wsbuf);
     miresult = WsmanClient_StartRequest(self, &page);
 
-    if (miresult != MI_RESULT_OK)
+    if (miresult != MI_RESULT_OK && !self->sentResponse)
     {
         PostResult(self, NULL, MI_RESULT_NOT_SUPPORTED);
     }
@@ -590,37 +527,6 @@ void _WsmanClient_Post( _In_ Strand* self_, _In_ Message* msg)
                 break;
             }
 
-            case EnumerateInstancesReqTag:
-            {
-                EnumerateInstancesReq *enumerateRequest = (EnumerateInstancesReq*) msg;
-                miresult = EnumerateMessageRequest(&self->wsbuf, &self->wsmanSoapHeaders, enumerateRequest);
-                
-                // save these for PullReq
-                self->enumerationState = (EnumerationState*) 
-                    Batch_GetClear(self->batch, sizeof(EnumerationState));
-                if (!self->enumerationState)
-                {
-                    miresult = MI_RESULT_SERVER_LIMITS_EXCEEDED;
-                    break;
-                }
-
-                self->enumerationState->nameSpace = Batch_Tcsdup(self->batch, enumerateRequest->nameSpace);
-                self->enumerationState->className = Batch_Tcsdup(self->batch, enumerateRequest->className);
-                if (self->enumerationState->nameSpace == NULL || self->enumerationState->className == NULL)
-                {
-                    miresult = MI_RESULT_SERVER_LIMITS_EXCEEDED;
-                }
-                break;
-            }
-
-            case PullRequestTag:
-            {
-                PullReq *pullRequest = (PullReq*) msg;
-                miresult = EnumeratePullRequest(&self->wsbuf, &self->wsmanSoapHeaders, pullRequest);
-                
-                break;
-            }
-
             default:
             {
                 miresult = MI_RESULT_NOT_SUPPORTED;
@@ -652,7 +558,7 @@ void _WsmanClient_PostControl( _In_ Strand* self, _In_ Message* msg)
 }
 void _WsmanClient_Ack( _In_ Strand* self_)
 {
-    WsmanClient* self = FromOffset( WsmanClient, strand, self_ );
+//    WsmanClient* self = FromOffset( WsmanClient, strand, self_ );
 //    ProtocolBase* protocolBase = (ProtocolBase*)self->base.data;
     DEBUG_ASSERT( NULL != self_ );
 
@@ -660,23 +566,6 @@ void _WsmanClient_Ack( _In_ Strand* self_)
 //    if (!(self->base.mask & SELECTOR_WRITE))
 //       self->base.mask |= SELECTOR_READ;
 //    Selector_Wakeup(HttpClient_GetSelector(self->httpClient), MI_FALSE );
-
-    if (!self->enumerationState || self->enumerationState->endOfSequence)
-    {
-        PostResult(self, NULL, MI_RESULT_OK);
-    }
-    else
-    {
-        PullReq *req = NULL;
-
-        req = PullReq_New(123456, WSMANFlag);
-        req->nameSpace = self->enumerationState->nameSpace;
-        req->className = self->enumerationState->className;
-        req->context = self->enumerationState->context;
-
-        _WsmanClient_Post(&self->strand, (Message*)req);
-    }
-
 }
 void _WsmanClient_Cancel( _In_ Strand* self_)
 {
@@ -806,9 +695,6 @@ MI_Result WsmanClient_New_Connector(
     WsmanClient *self;
     MI_Result miresult;
     MI_Boolean secure = MI_FALSE;
-    const char* trustedCertDir = NULL; /* Needs to be extracted from options */
-    const char* certFile = NULL; /* Needs to be extracted from options */
-    const char* privateKeyFile = NULL; /* Needs to be extracted from options */
 
     batch = Batch_New(BATCH_MAX_PAGES);
     if (batch == NULL)
@@ -894,12 +780,6 @@ MI_Result WsmanClient_New_Connector(
             goto finished;
     }
 
-    miresult = WsmanClient_CreateAuthHeader(batch, options, &self->authorizationHeader);
-    if (miresult != MI_RESULT_OK)
-    {
-        return miresult;
-    }
-
     /* Retrieve custom http URL if one exists and convert to utf8 */
     {
         const MI_Char *httpUrl_t;
@@ -968,8 +848,7 @@ MI_Result WsmanClient_New_Connector(
     miresult = HttpClient_New_Connector2(
             &self->httpClient, selector,
             self->hostname, self->wsmanSoapHeaders.port, secure,
-            HttpClientCallbackOnConnectFn, HttpClientCallbackOnStatusFn, HttpClientCallbackOnResponseFn, self,
-            trustedCertDir, certFile, privateKeyFile);
+            HttpClientCallbackOnConnectFn, HttpClientCallbackOnStatusFn2, HttpClientCallbackOnResponseFn, self, options);
     if (miresult != MI_RESULT_OK)
         goto finished;
 
@@ -994,126 +873,10 @@ MI_Result WsmanClient_Delete(WsmanClient *self)
     return MI_RESULT_OK;
 }
 
-#define AUTHORIZE_HEADER_BASIC "Authorization: Basic "
-
-typedef struct _PasswordEncData
-{
-    Batch *batch;
-    char *buffer;
-    MI_Uint32 bufferLength;
-} PasswordEncData;
-
-static int _passwordEnc(
-        const char* data,
-        size_t size,
-        void* callbackData)
-{
-    PasswordEncData *bufferData = (PasswordEncData*) callbackData;
-    bufferData->bufferLength = sizeof(AUTHORIZE_HEADER_BASIC) + size;
-    bufferData->buffer = (char *) Batch_Get(bufferData->batch, bufferData->bufferLength);
-    if (bufferData->buffer == NULL)
-    {
-        return -1;
-    }
-
-    Strlcpy(bufferData->buffer, AUTHORIZE_HEADER_BASIC, bufferData->bufferLength);
-
-
-    strncpy(bufferData->buffer+sizeof(AUTHORIZE_HEADER_BASIC)-1, data, size);
-    bufferData->buffer[bufferData->bufferLength-1] = '\0';
-    return 0;
-}
-
-static MI_Result WsmanClient_CreateAuthHeader(Batch *batch, MI_DestinationOptions *options, char **finalAuthHeader)
-{
-    MI_Uint32 credCount;
-    const MI_Char *optionName;
-    MI_UserCredentials userCredentials;
-    MI_Uint32 passwordLength;
-    MI_Char *password; /* password from options */
-    const MI_Char *username; /* username from option */
-    char *authUsernamePassword; /* <username>:<password> in ansi ready for base64-encoding */
-    MI_Uint32 authUsernamePasswordLength;
-    PasswordEncData base64EncData;
-
-    base64EncData.batch = batch;
-
-    /* Must have one and only one credential */
-    if ((MI_DestinationOptions_GetCredentialsCount(options, &credCount) != MI_RESULT_OK) ||
-            (credCount != 1))
-    {
-        return MI_RESULT_ACCESS_DENIED;
-    }
-
-    /* Get username pointer from options.
-     * Auth scheme must be basic as only one we support.
-     * Option name must be __MI_DESTINATIONOPTIONS_DESTINATION_CREDENTIALS
-     */
-    if ((MI_DestinationOptions_GetCredentialsAt(options, 0, &optionName, &userCredentials, NULL) != MI_RESULT_OK) ||
-        (Tcscmp(optionName, MI_T("__MI_DESTINATIONOPTIONS_DESTINATION_CREDENTIALS")) != 0) ||
-        (Tcscmp(userCredentials.authenticationType, MI_AUTH_TYPE_BASIC) != 0))
-    {
-        return MI_RESULT_ACCESS_DENIED;
-    }
-
-    username = userCredentials.credentials.usernamePassword.username;
-
-    /* We need to allocate a buffer for the password.
-     * Get length of it, allocate and then retrieve it.
-     */
-    if (MI_DestinationOptions_GetCredentialsPasswordAt(options, 0, &optionName, NULL, 0, &passwordLength, NULL) != MI_RESULT_OK)
-    {
-        return MI_RESULT_ACCESS_DENIED;
-    }
-
-    password = (MI_Char*) PAL_Malloc(passwordLength * sizeof(MI_Char));
-    if (password == NULL)
-    {
-        return MI_RESULT_SERVER_LIMITS_EXCEEDED;
-    }
-
-    if (MI_DestinationOptions_GetCredentialsPasswordAt(options, 0, &optionName, password, passwordLength, &passwordLength, NULL) != MI_RESULT_OK)
-    {
-        PAL_Free(password);
-        return MI_RESULT_FAILED;
-    }
-
-    /* Convert username and password into format needed for auth "<username>:<password>" as ANSI string */
-    authUsernamePasswordLength = Tcslen(username) + 1 /* : */ + Tcslen(password);
-    authUsernamePassword = (char*) PAL_Malloc(authUsernamePasswordLength + 1);
-    if (authUsernamePassword == NULL)
-    {
-        PAL_Free(password);
-        return MI_RESULT_SERVER_LIMITS_EXCEEDED;
-    }
-    StrTcslcpy(authUsernamePassword, username, authUsernamePasswordLength+1);
-    Strlcat(authUsernamePassword, ":", authUsernamePasswordLength+1);
-    StrTcslcat(authUsernamePassword, password, authUsernamePasswordLength+1);
-
-    PAL_Free(password);
-
-    /* Now we need to base64 encode the username:password string. We may as well
-     * put the result in the final buffer
-     */
-    if (Base64Enc(authUsernamePassword, authUsernamePasswordLength, _passwordEnc, &base64EncData) == -1)
-    {
-        PAL_Free(authUsernamePassword);
-        return MI_RESULT_FAILED;
-    }
-
-    /* Free up extra memory and set out parameter. We are done. */
-    PAL_Free(authUsernamePassword);
-    *finalAuthHeader = base64EncData.buffer;
-
-    return MI_RESULT_OK;
-}
 
 MI_Result WsmanClient_StartRequest(WsmanClient* self, Page** data)
 {
-    const char *headerItems[] = { self->contentType, self->authorizationHeader };
-    HttpClientRequestHeaders headers = { headerItems, MI_COUNT(headerItems) };
-
-    return HttpClient_StartRequest(self->httpClient, "POST", self->httpUrl, &headers, data);
+    return HttpClient_StartRequest(self->httpClient, "POST", self->httpUrl, self->contentType, data);
 }
 
 MI_Result WsmanClient_Run(WsmanClient* self, MI_Uint64 timeoutUsec)

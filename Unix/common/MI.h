@@ -255,6 +255,9 @@
 #elif defined(sun)
 # define MI_EXPORT __global
 # define MI_IMPORT /* empty */
+#elif defined(aix)
+# define MI_EXPORT __attribute__((visibility("default")))
+# define MI_IMPORT /* empty */
 #else
 # define MI_EXPORT
 # define MI_IMPORT
@@ -322,8 +325,8 @@
 # define MI_INLINE static __inline
 #elif defined(sun)
 # define MI_INLINE static inline
-#elif defined(__PPC)
-# define MI_INLINE __inline__
+#elif defined(aix)
+# define MI_INLINE __inline
 #else
 # define MI_INLINE static __inline
 #endif

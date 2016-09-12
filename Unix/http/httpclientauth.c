@@ -463,7 +463,7 @@ static char *_BuildInitialGssAuthHeader( _In_ HttpClient_SR_SocketData* self, MI
            return NULL;
        }
 
-#if !defined(hpux)
+#if !defined(hpux) && !defined(aix)
        if (self->password != NULL)
        {
 

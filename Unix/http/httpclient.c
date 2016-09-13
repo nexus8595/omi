@@ -2361,7 +2361,7 @@ MI_Result HttpClient_StartRequest(
     Page** data)
 {
     MI_Result ret;
-    const char *auth_header;
+    const char *auth_header = NULL;
     LOGD2((ZT("HttpClient_StartRequest - Begin. verb: %s, URI: %s"), verb, uri));
 
     /* check params */

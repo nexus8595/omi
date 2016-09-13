@@ -24,7 +24,7 @@
 #include <config.h>
 #if AUTHORIZATION
 #if defined(macos)
-#include <GSS.h> 
+#include <GSS/GSS.h> 
 #else
 #include <gssapi/gssapi.h> 
 #if !defined(aix)
@@ -88,7 +88,9 @@ typedef void SSL_CTX;
 
 #endif
 
-//static gss_OID_desc gss_c_nt_user_name = {10, (void *)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x01"}; 
+#if defined(macos)
+gss_OID_desc __gss_c_nt_user_name_oid_desc = {10, (void *)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x01\x01"}; 
+#endif
 //gss_OID      GSS_C_NT_USER_NAME = &gss_c_nt_user_name;
 
 #define HTTP_LONGEST_ERROR_DESCRIPTION 50
@@ -383,9 +385,6 @@ static char *_BuildInitialGssAuthHeader( _In_ HttpClient_SR_SocketData* self, MI
    const gss_OID_desc mech_krb5   = { 9, "\052\206\110\206\367\022\001\002\002" };
    const gss_OID_desc mech_spnego = { 6, "\053\006\001\005\005\002" };
    const gss_OID_desc mech_iakerb = { 6, "\053\006\001\005\002\005" };
-   const gss_OID_desc mech_ntlm   = {10, "\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a" };
-   // gss_OID_set_desc mechset_krb5 = { 1, &mech_krb5 };
-   // gss_OID_set_desc mechset_iakerb = { 1, &mech_iakerb };
    const gss_OID_set_desc mechset_spnego = { 1, (gss_OID)&mech_spnego };
 
    const gss_OID mechset_krb5_elems[] = { (gss_OID const)&mech_krb5,
@@ -396,12 +395,17 @@ static char *_BuildInitialGssAuthHeader( _In_ HttpClient_SR_SocketData* self, MI
 
    // The list attached to the spnego token 
 
+#if defined(linux)
+   const gss_OID_desc mech_ntlm   = {10, "\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a" };
+   // gss_OID_set_desc mechset_krb5 = { 1, &mech_krb5 };
+   // gss_OID_set_desc mechset_iakerb = { 1, &mech_iakerb };
    const gss_OID mechset_avail_elems[] = { 
                                             (gss_OID const)&mech_ntlm, // For now we start with ntlm
-                                            // mech_krb5,   Not yet
-                                             // mech_iakerb,  Not yet
+                                             // mech_krb5,   Not yet
+                                              // mech_iakerb,  Not yet
                                               };
    const gss_OID_set_desc mechset_avail    = { /*3,*/1, (gss_OID)mechset_avail_elems };
+#endif
 
 
    static const char WSMAN_PROTOCOL[] = "WSMAN/";
@@ -463,7 +467,7 @@ static char *_BuildInitialGssAuthHeader( _In_ HttpClient_SR_SocketData* self, MI
            return NULL;
        }
 
-#if !defined(hpux) && !defined(aix)
+#if !defined(hpux) && !defined(aix) && !defined(macos)
        if (self->password != NULL)
        {
 

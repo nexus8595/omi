@@ -24,7 +24,7 @@
 #include <config.h>
 #if ( AUTHORIZATION == 1 )
 #if defined(macos)
-#include <GSS.h> 
+#include <GSS/GSS.h> 
 #else
 #include <gssapi/gssapi.h> 
 #endif
@@ -152,7 +152,7 @@ Http_DecryptData(_In_ Http_SR_SocketData *handler, _Out_ HttpHeaders *pHeaders, 
         return FALSE;
     }
 
-    if (!strncasecmp(pHeaders->contentType, MULTIPART_ENCRYPTED, MULTIPART_ENCRYPTED_LEN) == 0)
+    if (!(strncasecmp(pHeaders->contentType, MULTIPART_ENCRYPTED, MULTIPART_ENCRYPTED_LEN) == 0))
     {
         // Then its not encrypted. our job is done
 

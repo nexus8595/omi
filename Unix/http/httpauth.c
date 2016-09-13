@@ -377,7 +377,7 @@ Http_EncryptData(_In_ Http_SR_SocketData *handler, _Out_ char **pHeader, size_t 
 {
     char numbuf[11] = {0};
     const char *pnum = NULL; 
-    unsigned long str_len = 0;
+    size_t str_len = 0;
  
  
     static const char MULTIPART_ENCRYPTED[] = "multipart/encrypted;"\

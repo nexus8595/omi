@@ -2360,7 +2360,7 @@ MI_Result HttpClient_StartRequest(
     const char*contentType,
     Page** data)
 {
-    MI_Result ret;
+    Http_CallbackResult ret;
     const char *auth_header = NULL;
     LOGD2((ZT("HttpClient_StartRequest - Begin. verb: %s, URI: %s"), verb, uri));
 

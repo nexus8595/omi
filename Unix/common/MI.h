@@ -6793,7 +6793,12 @@ extern const MI_ClientFT_V1 *mi_clientFT_V1;
 ** Return: MI_RESULT_OK success, other errors indicate specific failure
 **=============================================================================
 */
-MI_Result MI_MAIN_CALL MI_Application_InitializeV1(
+#if defined (_MSC_VER)
+#define MI_LINKAGE
+#else
+#define MI_LINKAGE MI_EXPORT
+#endif
+MI_EXPORT MI_Result MI_MAIN_CALL MI_Application_InitializeV1(
              MI_Uint32 flags,
     _In_opt_z_ const MI_Char *applicationID,
     _Outptr_opt_result_maybenull_ MI_Instance **extendedError,

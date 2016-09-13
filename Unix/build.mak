@@ -237,9 +237,9 @@ distclean:
 
 ifdef BUILD_TESTS
 tests:
-	( LD_LIBRARY_PATH=$(LIBDIR); export LD_LIBRARY_PATH; DYLD_LIBRARY_PATH=$(LIBDIR); export DYLD_LIBRARY_PATH; sudo $(BINDIR)/nits -file:$(TMPDIR)/nitsargs.txt )
+	sudo sh -c "( LD_LIBRARY_PATH=$(LIBDIR); export LD_LIBRARY_PATH; DYLD_LIBRARY_PATH=$(LIBDIR); export DYLD_LIBRARY_PATH; $(BINDIR)/nits -file:$(TMPDIR)/nitsargs.txt )"
 dsctests:
-	( LD_LIBRARY_PATH=$(LIBDIR); export LD_LIBRARY_PATH; DYLD_LIBRARY_PATH=$(LIBDIR); export DYLD_LIBRARY_PATH; sudo $(BINDIR)/nits -file:$(TMPDIR)/nitsdscargs.txt )
+	( LD_LIBRARY_PATH=$(LIBDIR); export LD_LIBRARY_PATH; DYLD_LIBRARY_PATH=$(LIBDIR); export DYLD_LIBRARY_PATH; $(BINDIR)/nits -file:$(TMPDIR)/nitsdscargs.txt )
 endif
 
 ##==============================================================================

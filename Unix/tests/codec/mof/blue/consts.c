@@ -437,7 +437,7 @@ LEX_TEST lextest[] =
             {0, 0},
         }},
 
-#if defined(linux) || defined(macos)
+#if (defined(linux) && __x86_64__) || defined(macos)
     // This breaks on solaris, hpux, aix due to limitations of their strtoull
     {"test13", cWIntHEXMAX, sizeof(cWIntHEXMAX), {
             {TOK_INSTANCE, 0},

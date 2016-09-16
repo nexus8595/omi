@@ -437,6 +437,8 @@ LEX_TEST lextest[] =
             {0, 0},
         }},
 
+#if defined(linux) || defined(macos)
+    // This breaks on solaris, hpux, aix due to limitations of their strtoull
     {"test13", cWIntHEXMAX, sizeof(cWIntHEXMAX), {
             {TOK_INSTANCE, 0},
             {TOK_OF, 0},
@@ -449,6 +451,7 @@ LEX_TEST lextest[] =
             {';', 0},
             {0, 0},
         }},
+#endif
 
     {"test14", cAintstr, sizeof(cAintstr), {
             {TOK_INSTANCE, 0},

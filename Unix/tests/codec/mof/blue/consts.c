@@ -452,7 +452,6 @@ LEX_TEST lextest[] =
             {0, 0},
         }},
 #endif
-
     {"test14", cAintstr, sizeof(cAintstr), {
             {TOK_INSTANCE, 0},
             {TOK_OF, 0},

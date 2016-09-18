@@ -1479,7 +1479,11 @@ static MI_Result _CreateSSLContext(Http* self, const char* sslCipherSuite, Serve
         options |= SSL_OP_NO_SSLv3;
     }
 
+#if defined(linux)
     if ( options != 0 && (SSL_CTX_set_options(sslContext, options) == 0) )
+#else
+    if (SSL_CTX_set_options(sslContext, options) == 0)
+#endif
     {
         trace_SSL_CannotSetOptions( options );
         return MI_RESULT_FAILED;

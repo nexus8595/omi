@@ -818,11 +818,7 @@ NitsTestWithSetup(TestPutResponse, TestParserSetup)
     {
         goto cleanup;
     }
-<<<<<<< HEAD
-    if (!NitsCompare(MI_RESULT_OK, WS_ParseInstanceBody(&xml, batch, &instance), PAL_T("Unable to retrieve instance")))
-=======
     if (!NitsCompare(MI_RESULT_OK, WS_ParseInstanceBody(&xml, batch, &instance, 0), PAL_T("Unable to retrieve instance")))
->>>>>>> wsman-client-feature
     {
         goto cleanup;
     }
